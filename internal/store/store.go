@@ -79,7 +79,7 @@ func open(dir string) (Store, error) {
 	return Store{Dir: dir, RepoDir: repoDir}, nil
 }
 
-func Init(ctx context.Context, path string, now time.Time) (Store, Meta, error) {
+func Init(ctx context.Context, path string, now time.Time, renderMemory func(State) []byte) (Store, Meta, error) {
 	dir := filepath.Clean(path)
 	if exists(dir) {
 		return Store{}, Meta{}, ErrUsage{Err: fmt.Errorf("store already exists at %s", dir)}
@@ -96,7 +96,7 @@ func Init(ctx context.Context, path string, now time.Time) (Store, Meta, error) 
 	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.lock\n*.tmp-*\n"), 0o644); err != nil {
 		return Store{}, Meta{}, err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "MEMORY.md"), []byte("# Memory\n\n_Last updated: never · 0 live facts · 0 retracted · store "+meta.StoreID+"_\n\n## Provenance\n\n| id | learned | session | agent | source | history |\n|---|---|---|---|---|---|\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "MEMORY.md"), renderMemory(State{Meta: meta}), 0o644); err != nil {
 		return Store{}, Meta{}, err
 	}
 	repoDir := dir

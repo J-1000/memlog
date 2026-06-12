@@ -82,7 +82,7 @@ func initGitStore(t *testing.T) string {
 	run(t, dir, "git", "init")
 	run(t, dir, "git", "config", "user.email", "test@example.com")
 	run(t, dir, "git", "config", "user.name", "Test User")
-	_, _, err := Init(context.Background(), filepath.Join(dir, ".memlog"), mustTime("2026-06-12T10:00:00Z"))
+	_, _, err := Init(context.Background(), filepath.Join(dir, ".memlog"), mustTime("2026-06-12T10:00:00Z"), stubMemory)
 	require.NoError(t, err)
 	return dir
 }

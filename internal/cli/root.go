@@ -89,7 +89,7 @@ func (a *app) initCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, meta, err := store.Init(cmd.Context(), path, now)
+			_, meta, err := store.Init(cmd.Context(), path, now, render.Memory)
 			if err != nil {
 				return err
 			}
