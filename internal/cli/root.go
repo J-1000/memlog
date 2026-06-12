@@ -245,6 +245,9 @@ func (a *app) showCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if e := state.ByID[id]; e.Op == model.OpRetract {
+				id = *e.Ref
+			}
 			chain := state.Chain(id)
 			head := chain[len(chain)-1]
 			if a.jsonOut {
