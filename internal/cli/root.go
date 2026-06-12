@@ -568,6 +568,23 @@ func (a *app) doctorCmd() *cobra.Command {
 					}
 				}
 			}
+			if a.jsonOut {
+				report := struct {
+					Clean    bool     `json:"clean"`
+					Fixed    bool     `json:"fixed"`
+					Problems []string `json:"problems"`
+				}{Clean: len(problems) == 0, Fixed: fix && len(problems) > 0, Problems: problems}
+				if report.Problems == nil {
+					report.Problems = []string{}
+				}
+				if err := json.NewEncoder(cmd.OutOrStdout()).Encode(report); err != nil {
+					return err
+				}
+				if len(problems) > 0 && !fix {
+					return store.ErrNotFound{Err: fmt.Errorf("problems found")}
+				}
+				return nil
+			}
 			if len(problems) > 0 && !fix {
 				for _, p := range problems {
 					fmt.Fprintln(cmd.ErrOrStderr(), p)
