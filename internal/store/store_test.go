@@ -37,15 +37,9 @@ func TestAppendMonthRolloverAndDeterminism(t *testing.T) {
 	st, err := Open(filepath.Join(dir, ".memlog"))
 	require.NoError(t, err)
 	a := NewEntry(model.OpAdd, "June fact", []string{"a"}, "alpha", "s1", "", "", nil, mustTime("2026-06-30T23:59:00Z"))
-	state, err := st.Load()
-	require.NoError(t, err)
-	require.NoError(t, state.Accept(a))
-	require.NoError(t, st.Append(context.Background(), a, []byte("memory\n"), "June fact\n\nMemlog-Session: s1"))
+	require.NoError(t, st.Append(context.Background(), a, stubMemory, "June fact\n\nMemlog-Session: s1"))
 	b := NewEntry(model.OpAdd, "July fact", []string{"b"}, "beta", "s2", "", "", nil, mustTime("2026-07-01T00:00:00Z"))
-	state, err = st.Load()
-	require.NoError(t, err)
-	require.NoError(t, state.Accept(b))
-	require.NoError(t, st.Append(context.Background(), b, []byte("memory\n"), "July fact\n\nMemlog-Session: s2"))
+	require.NoError(t, st.Append(context.Background(), b, stubMemory, "July fact\n\nMemlog-Session: s2"))
 	require.FileExists(t, filepath.Join(st.Dir, "journal", "2026-06.jsonl"))
 	require.FileExists(t, filepath.Join(st.Dir, "journal", "2026-07.jsonl"))
 	loaded, err := st.Load()
@@ -73,7 +67,14 @@ func TestConcurrentAppendDoesNotCorruptJournal(t *testing.T) {
 	state, err := st.Load()
 	require.NoError(t, err)
 	require.Len(t, state.Entries, 2)
+	doctor := exec.Command(bin, "--store", storeDir, "doctor")
+	doctor.Dir = dir
+	out, err := doctor.CombinedOutput()
+	require.NoError(t, err, string(out))
+	require.Contains(t, string(out), "clean")
 }
+
+func stubMemory(State) []byte { return []byte("memory\n") }
 
 func initGitStore(t *testing.T) string {
 	t.Helper()

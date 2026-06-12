@@ -187,20 +187,13 @@ func (a *app) retractCmd() *cobra.Command {
 }
 
 func (a *app) writeEntry(cmd *cobra.Command, st store.Store, e model.Entry) error {
-	state, err := st.Load()
-	if err != nil {
-		return err
-	}
-	if err := state.Accept(e); err != nil {
-		return store.ErrUsage{Err: err}
-	}
 	body := e.Fact
 	if e.Op == model.OpRetract && e.Ref != nil {
 		body = "retracts " + *e.Ref
 	}
 	body += "\n\nMemlog-Session: " + e.Session
 	body += "\nMemlog-Agent: " + e.Agent
-	if err := st.Append(cmd.Context(), e, render.Memory(state), body); err != nil {
+	if err := st.Append(cmd.Context(), e, render.Memory, body); err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), e.ID)

@@ -253,7 +253,7 @@ func (st State) ResolvePrefix(prefix string) (string, error) {
 	return matches[0], nil
 }
 
-func (s Store) Append(ctx context.Context, e model.Entry, memory []byte, commitBody string) error {
+func (s Store) Append(ctx context.Context, e model.Entry, renderMemory func(State) []byte, commitBody string) error {
 	lock := flock.New(filepath.Join(s.Dir, "journal.lock"))
 	lockCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -297,7 +297,7 @@ func (s Store) Append(ctx context.Context, e model.Entry, memory []byte, commitB
 	if err := f.Close(); err != nil {
 		return err
 	}
-	if err := AtomicWrite(filepath.Join(s.Dir, "MEMORY.md"), memory); err != nil {
+	if err := AtomicWrite(filepath.Join(s.Dir, "MEMORY.md"), renderMemory(state)); err != nil {
 		return err
 	}
 	paths, err := s.repoPaths(journalRel, "MEMORY.md")
