@@ -34,6 +34,7 @@ func NewRoot() *cobra.Command {
 	a := &app{}
 	root := &cobra.Command{
 		Use:           "memlog",
+		Version:       Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
