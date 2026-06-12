@@ -107,6 +107,33 @@ func TestDoctorFixUpgradesSupportFiles(t *testing.T) {
 	require.Equal(t, "journal/*.jsonl merge=union\n", string(attrs))
 }
 
+func TestMCPSubcommand(t *testing.T) {
+	dir := t.TempDir()
+	bin := buildCLI(t)
+	run(t, dir, "git", "init")
+	run(t, dir, "git", "config", "user.email", "test@example.com")
+	run(t, dir, "git", "config", "user.name", "Test User")
+	storeDir := filepath.Join(dir, ".memlog")
+	run(t, dir, bin, "--store", storeDir, "init")
+	requests := strings.Join([]string{
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}`,
+		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"memlog_add","arguments":{"fact":"via mcp","session":"mcp-s"}}}`,
+		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"memlog_search","arguments":{"query":"via mcp"}}}`,
+	}, "\n") + "\n"
+	cmd := exec.Command(bin, "--store", storeDir, "mcp")
+	cmd.Dir = dir
+	cmd.Stdin = strings.NewReader(requests)
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	require.Len(t, lines, 3)
+	require.Contains(t, lines[0], `"serverInfo":{"name":"memlog"`)
+	require.Contains(t, lines[2], "via mcp")
+	require.Contains(t, run(t, dir, bin, "--store", storeDir, "search", "via mcp"), "via mcp")
+	require.Contains(t, run(t, dir, "git", "log", "--oneline"), "memlog: add")
+}
+
 func buildCLI(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "memlog")

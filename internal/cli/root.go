@@ -13,11 +13,16 @@ import (
 	"time"
 
 	"github.com/J-1000/memlog/internal/gitio"
+	"github.com/J-1000/memlog/internal/mcp"
 	"github.com/J-1000/memlog/internal/model"
 	"github.com/J-1000/memlog/internal/render"
 	"github.com/J-1000/memlog/internal/store"
 	"github.com/spf13/cobra"
 )
+
+// Version is the build version, overridden at release time via
+// -ldflags "-X github.com/J-1000/memlog/internal/cli.Version=...".
+var Version = "dev"
 
 type app struct {
 	storePath string
@@ -51,6 +56,7 @@ func NewRoot() *cobra.Command {
 		a.tagsCmd(),
 		a.subjectsCmd(),
 		a.doctorCmd(),
+		a.mcpCmd(),
 	)
 	return root
 }
@@ -680,6 +686,18 @@ func (a *app) doctorCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&fix, "fix", false, "fix problems")
 	return cmd
+}
+
+func (a *app) mcpCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "mcp",
+		Short: "Serve memlog tools over the Model Context Protocol (stdio)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			s := &mcp.Server{StorePath: a.storePath, Version: Version}
+			return s.Serve(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout())
+		},
+	}
 }
 
 func addEntryFlags(cmd *cobra.Command, tags, subject, session, agent, source *string) {
