@@ -89,7 +89,15 @@ func open(dir string) (Store, error) {
 	if root, err := gitio.WorkTreeRoot(context.Background(), dir); err == nil {
 		repoDir = root
 	}
-	return Store{Dir: dir, RepoDir: repoDir}, nil
+	s := Store{Dir: dir, RepoDir: repoDir}
+	meta, err := s.Meta()
+	if err != nil {
+		return Store{}, err
+	}
+	if meta.Version > 1 {
+		return Store{}, ErrUsage{Err: fmt.Errorf("store version %d not supported; upgrade memlog", meta.Version)}
+	}
+	return s, nil
 }
 
 func Init(ctx context.Context, path string, now time.Time, renderMemory func(State) []byte) (Store, Meta, error) {

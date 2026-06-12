@@ -64,6 +64,15 @@ func TestUpgradeSupportFiles(t *testing.T) {
 	require.Equal(t, "*.lock\n*.tmp-*\n", string(ignore))
 }
 
+func TestOpenRejectsNewerStoreVersion(t *testing.T) {
+	dir := initGitStore(t)
+	storeDir := filepath.Join(dir, ".memlog")
+	require.NoError(t, os.WriteFile(filepath.Join(storeDir, "meta.json"), []byte(`{"version":2,"created_at":"2026-06-12T10:00:00Z","store_id":"01J9XK7M3QJ8Z6W4V2T1R0PQNM"}`), 0o644))
+	_, err := Open(storeDir)
+	require.EqualError(t, err, "store version 2 not supported; upgrade memlog")
+	require.Equal(t, 2, Code(err))
+}
+
 func TestLoadToleratesForwardRefs(t *testing.T) {
 	dir := initGitStore(t)
 	st, err := Open(filepath.Join(dir, ".memlog"))
