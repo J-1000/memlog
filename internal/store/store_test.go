@@ -32,6 +32,17 @@ func TestStateResolutionRejectsInvalidRefs(t *testing.T) {
 	require.Empty(t, st.LiveHeads())
 }
 
+func TestInitWritesSupportFiles(t *testing.T) {
+	dir := initGitStore(t)
+	storeDir := filepath.Join(dir, ".memlog")
+	ignore, err := os.ReadFile(filepath.Join(storeDir, ".gitignore"))
+	require.NoError(t, err)
+	require.Equal(t, "*.lock\n*.tmp-*\n", string(ignore))
+	attrs, err := os.ReadFile(filepath.Join(storeDir, ".gitattributes"))
+	require.NoError(t, err)
+	require.Equal(t, GitAttributes, string(attrs))
+}
+
 func TestAppendMonthRolloverAndDeterminism(t *testing.T) {
 	dir := initGitStore(t)
 	st, err := Open(filepath.Join(dir, ".memlog"))

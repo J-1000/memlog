@@ -21,6 +21,10 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+// GitAttributes union-merges journal files so concurrent appends from
+// synced machines combine instead of conflicting.
+const GitAttributes = "journal/*.jsonl merge=union\n"
+
 type Store struct {
 	Dir     string
 	RepoDir string
@@ -96,6 +100,9 @@ func Init(ctx context.Context, path string, now time.Time, renderMemory func(Sta
 	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.lock\n*.tmp-*\n"), 0o644); err != nil {
 		return Store{}, Meta{}, err
 	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitattributes"), []byte(GitAttributes), 0o644); err != nil {
+		return Store{}, Meta{}, err
+	}
 	if err := os.WriteFile(filepath.Join(dir, "MEMORY.md"), renderMemory(State{Meta: meta}), 0o644); err != nil {
 		return Store{}, Meta{}, err
 	}
@@ -112,7 +119,7 @@ func Init(ctx context.Context, path string, now time.Time, renderMemory func(Sta
 		}
 	}
 	st := Store{Dir: dir, RepoDir: repoDir}
-	paths, err := st.repoPaths("meta.json", ".gitignore", "MEMORY.md")
+	paths, err := st.repoPaths("meta.json", ".gitignore", ".gitattributes", "MEMORY.md")
 	if err != nil {
 		return Store{}, Meta{}, err
 	}
