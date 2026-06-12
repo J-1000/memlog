@@ -79,6 +79,7 @@ A store syncs with plain `git pull` and `git push`. The store's `.gitattributes`
 | `memlog tags` | List distinct tags with live-fact counts |
 | `memlog subjects` | List distinct subjects with live-fact counts |
 | `memlog doctor [--fix]` | Check integrity and recover stale generated state |
+| `memlog mcp` | Serve memlog tools over the Model Context Protocol (stdio) |
 
 Global flags:
 
@@ -204,6 +205,23 @@ memlog doctor --fix
 
 `doctor --fix` re-renders `MEMORY.md`, appends missing support-file lines, and commits recovered store changes without deleting journal lines or rewriting git history.
 
+## MCP Server
+
+`memlog mcp` serves the store to MCP clients over stdio — no daemon, one client per process. It exposes `memlog_add`, `memlog_search`, `memlog_show`, `memlog_supersede`, and `memlog_retract`; writes go through the same lock, render, and git-commit path as the CLI, and validation errors surface verbatim as tool errors. Example client configuration:
+
+```json
+{
+  "mcpServers": {
+    "memlog": {
+      "command": "memlog",
+      "args": ["--store", "/path/to/.memlog", "mcp"]
+    }
+  }
+}
+```
+
+The full protocol behavior is specified in [docs/mcp.md](docs/mcp.md).
+
 ## Development
 
 ```sh
@@ -225,6 +243,3 @@ CI runs formatting, vet, and tests on Linux and macOS.
 - A batch `add --stdin` of more than one fact commits as `memlog: add <N> facts` with the facts in the body.
 - `context` always prints the `# Memory` heading and exits 0 even when the store has no live facts, so it is safe to inject unconditionally.
 
-## Future Work
-
-An MCP server exposing add/search/show is a possible future milestone. It is intentionally out of scope for the initial CLI.
