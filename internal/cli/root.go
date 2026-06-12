@@ -349,17 +349,11 @@ func (a *app) searchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var hits []model.Entry
+			hits := state.LiveHeads()
 			if all {
-				for _, e := range state.Entries {
-					if e.Op == model.OpAdd || e.Op == model.OpSupersede {
-						hits = append(hits, e)
-					}
-				}
-			} else {
-				hits = state.LiveHeads()
+				hits = state.FactEntries()
 			}
-			return a.printFacts(cmd, filterFacts(hits, tag, subject, args[0]))
+			return a.printFacts(cmd, store.FilterFacts(hits, tag, subject, args[0]))
 		},
 	}
 	cmd.Flags().StringVar(&tag, "tag", "", "tag")
@@ -385,7 +379,7 @@ func (a *app) listCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return a.printFacts(cmd, filterFacts(state.LiveHeads(), tag, subject, ""))
+			return a.printFacts(cmd, store.FilterFacts(state.LiveHeads(), tag, subject, ""))
 		},
 	}
 	cmd.Flags().StringVar(&tag, "tag", "", "tag")
@@ -434,24 +428,6 @@ func validateFilters(tag, subject string) error {
 		return store.ErrUsage{Err: fmt.Errorf("invalid subject %q", subject)}
 	}
 	return nil
-}
-
-func filterFacts(entries []model.Entry, tag, subject, query string) []model.Entry {
-	q := strings.ToLower(query)
-	var out []model.Entry
-	for _, e := range entries {
-		if tag != "" && !hasTag(e.Tags, tag) {
-			continue
-		}
-		if subject != "" && e.Subject != subject {
-			continue
-		}
-		if !strings.Contains(strings.ToLower(e.Fact), q) {
-			continue
-		}
-		out = append(out, e)
-	}
-	return out
 }
 
 func (a *app) printFacts(cmd *cobra.Command, hits []model.Entry) error {
@@ -728,13 +704,4 @@ func parseTags(s string) []string {
 		}
 	}
 	return model.NormalizeTags(tags)
-}
-
-func hasTag(tags []string, tag string) bool {
-	for _, t := range tags {
-		if t == tag {
-			return true
-		}
-	}
-	return false
 }

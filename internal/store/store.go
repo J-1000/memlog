@@ -284,6 +284,38 @@ func (st State) Chain(id string) []model.Entry {
 	return chain
 }
 
+// FilterFacts narrows entries by tag, subject, and case-insensitive
+// substring query; empty filters match everything.
+func FilterFacts(entries []model.Entry, tag, subject, query string) []model.Entry {
+	q := strings.ToLower(query)
+	var out []model.Entry
+	for _, e := range entries {
+		if tag != "" && !slices.Contains(e.Tags, tag) {
+			continue
+		}
+		if subject != "" && e.Subject != subject {
+			continue
+		}
+		if !strings.Contains(strings.ToLower(e.Fact), q) {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+// FactEntries returns every add/supersede entry, including superseded
+// and retracted versions.
+func (st State) FactEntries() []model.Entry {
+	var out []model.Entry
+	for _, e := range st.Entries {
+		if e.Op == model.OpAdd || e.Op == model.OpSupersede {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
 func (st State) ResolvePrefix(prefix string) (string, error) {
 	if len(prefix) < 8 {
 		return "", ErrUsage{Err: fmt.Errorf("ref prefix must be at least 8 characters")}
