@@ -33,6 +33,8 @@ type Entry struct {
 
 var tagRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
 
+func ValidTag(s string) bool { return tagRE.MatchString(s) }
+
 func NewID(t time.Time, entropy *ulid.MonotonicEntropy) string {
 	return ulid.MustNew(ulid.Timestamp(t), entropy).String()
 }
@@ -76,11 +78,11 @@ func Validate(e Entry) error {
 		return fmt.Errorf("tags must be sorted and deduplicated")
 	}
 	for _, tag := range e.Tags {
-		if !tagRE.MatchString(tag) {
+		if !ValidTag(tag) {
 			return fmt.Errorf("invalid tag %q", tag)
 		}
 	}
-	if e.Subject != "" && !tagRE.MatchString(e.Subject) {
+	if e.Subject != "" && !ValidTag(e.Subject) {
 		return fmt.Errorf("invalid subject %q", e.Subject)
 	}
 	if e.Session == "" || len(e.Session) > 128 || !printableASCII(e.Session) {

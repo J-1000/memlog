@@ -273,6 +273,12 @@ func (a *app) searchCmd() *cobra.Command {
 		Use:  "search QUERY",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if tag != "" && !model.ValidTag(tag) {
+				return store.ErrUsage{Err: fmt.Errorf("invalid tag %q", tag)}
+			}
+			if subject != "" && !model.ValidTag(subject) {
+				return store.ErrUsage{Err: fmt.Errorf("invalid subject %q", subject)}
+			}
 			st, err := a.open()
 			if err != nil {
 				return err
