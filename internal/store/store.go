@@ -93,7 +93,7 @@ func Init(ctx context.Context, path string, now time.Time) (Store, Meta, error) 
 	if err := writeJSON(filepath.Join(dir, "meta.json"), meta); err != nil {
 		return Store{}, Meta{}, err
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.lock\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.lock\n*.tmp-*\n"), 0o644); err != nil {
 		return Store{}, Meta{}, err
 	}
 	if err := os.WriteFile(filepath.Join(dir, "MEMORY.md"), []byte("# Memory\n\n_Last updated: never · 0 live facts · 0 retracted · store "+meta.StoreID+"_\n\n## Provenance\n\n| id | learned | session | agent | source | history |\n|---|---|---|---|---|---|\n"), 0o644); err != nil {
