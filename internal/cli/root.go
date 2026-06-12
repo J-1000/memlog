@@ -331,7 +331,6 @@ func (a *app) searchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			q := strings.ToLower(args[0])
 			var hits []model.Entry
 			if all {
 				for _, e := range state.Entries {
@@ -342,34 +341,45 @@ func (a *app) searchCmd() *cobra.Command {
 			} else {
 				hits = state.LiveHeads()
 			}
-			count := 0
-			for _, e := range hits {
-				if tag != "" && !hasTag(e.Tags, tag) {
-					continue
-				}
-				if subject != "" && e.Subject != subject {
-					continue
-				}
-				if !strings.Contains(strings.ToLower(e.Fact), q) {
-					continue
-				}
-				subj := e.Subject
-				if subj == "" {
-					subj = "-"
-				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s  %s  %s\n", e.ID[:8], subj, e.Fact)
-				count++
-			}
-			if count == 0 {
-				return store.ErrNotFound{Err: fmt.Errorf("no matches")}
-			}
-			return nil
+			return printFacts(cmd, filterFacts(hits, tag, subject, args[0]))
 		},
 	}
 	cmd.Flags().StringVar(&tag, "tag", "", "tag")
 	cmd.Flags().StringVar(&subject, "subject", "", "subject")
 	cmd.Flags().BoolVar(&all, "all", false, "include non-live entries")
 	return cmd
+}
+
+func filterFacts(entries []model.Entry, tag, subject, query string) []model.Entry {
+	q := strings.ToLower(query)
+	var out []model.Entry
+	for _, e := range entries {
+		if tag != "" && !hasTag(e.Tags, tag) {
+			continue
+		}
+		if subject != "" && e.Subject != subject {
+			continue
+		}
+		if !strings.Contains(strings.ToLower(e.Fact), q) {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
+func printFacts(cmd *cobra.Command, hits []model.Entry) error {
+	for _, e := range hits {
+		subj := e.Subject
+		if subj == "" {
+			subj = "-"
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "%s  %s  %s\n", e.ID[:8], subj, e.Fact)
+	}
+	if len(hits) == 0 {
+		return store.ErrNotFound{Err: fmt.Errorf("no matches")}
+	}
+	return nil
 }
 
 func (a *app) renderCmd() *cobra.Command {
