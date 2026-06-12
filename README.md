@@ -66,13 +66,18 @@ A store syncs with plain `git pull` and `git push`. The store's `.gitattributes`
 |---|---|
 | `memlog init [PATH]` | Create a memory store |
 | `memlog add FACT --session S` | Record a new fact |
-| `memlog supersede REF FACT --session S` | Replace a previous live fact with a new version |
+| `memlog add --stdin --session S` | Record one fact per stdin line in a single commit |
+| `memlog supersede REF FACT --session S [--inherit]` | Replace a previous live fact with a new version |
 | `memlog retract REF --session S` | Mark a live fact as no longer true |
 | `memlog show REF` | Show the current logical fact and its chain |
 | `memlog search QUERY` | Search live facts by substring |
+| `memlog list [--subject X] [--tag T]` | List live facts without a query |
+| `memlog context [--subject X] [--max-chars N]` | Print a compact live-fact digest for agent context |
 | `memlog history` | Print the full append-only journal |
 | `memlog render` | Regenerate `MEMORY.md` and commit if changed |
 | `memlog sessions` | List sessions with entry counts |
+| `memlog tags` | List distinct tags with live-fact counts |
+| `memlog subjects` | List distinct subjects with live-fact counts |
 | `memlog doctor [--fix]` | Check integrity and recover stale generated state |
 
 Global flags:
@@ -116,6 +121,36 @@ memlog retract 01J9XK7M \
   --source "policy no longer applies"
 ```
 
+Batch-add facts (one per line, blank lines skipped, one commit):
+
+```sh
+printf 'first fact\nsecond fact\n' | memlog add --stdin \
+  --session claude-code-2026-06-12-a \
+  --tags notes
+```
+
+Correct a fact while keeping its tags and subject:
+
+```sh
+memlog supersede 01J9XK7M "Updated wording." --inherit \
+  --session claude-code-2026-06-12-b
+```
+
+Reuse the existing taxonomy instead of inventing new tags or subjects:
+
+```sh
+memlog tags
+memlog subjects
+```
+
+Inject live memory at session start:
+
+```sh
+memlog context --max-chars 4000
+```
+
+`context` prints a Markdown digest of live facts without provenance or ids. With `--max-chars`, whole facts are dropped from the end to fit the budget and a note goes to stderr.
+
 ## Output Model
 
 Each journal line is a JSON object with:
@@ -138,9 +173,23 @@ Machine-readable output is available where useful:
 memlog init --json
 memlog show REF --json
 memlog sessions --json
+memlog search QUERY --json
+memlog list --json
+memlog history --json
+memlog tags --json
+memlog subjects --json
+memlog doctor --json
 ```
 
-JSON shapes are stable and suitable for scripts.
+JSON shapes are stable and suitable for scripts:
+
+- `init`: the store's `meta.json` object.
+- `show`, `search`, `list`, `history`: an array of raw journal entries (`[]` when empty).
+- `sessions`: an array of `{"session", "count", "newest"}`.
+- `tags`, `subjects`: an array of `{"name", "count"}` sorted by name.
+- `doctor`: `{"clean": bool, "fixed": bool, "problems": [string]}`.
+
+Exit codes are the same with and without `--json`; an empty result still exits 1.
 
 ## Crash Recovery
 
@@ -172,6 +221,9 @@ CI runs formatting, vet, and tests on Linux and macOS.
 - Rendering uses the newest journal timestamp, not wall-clock time, so repeated renders are byte-identical.
 - Inputs are rejected rather than guessed when validity is unclear.
 - Existing journal lines are never mutated or removed.
+- Journal loading indexes all entries before applying refs and replays them in ULID order, so resolution does not depend on line order within or across files.
+- A batch `add --stdin` of more than one fact commits as `memlog: add <N> facts` with the facts in the body.
+- `context` always prints the `# Memory` heading and exits 0 even when the store has no live facts, so it is safe to inject unconditionally.
 
 ## Future Work
 
