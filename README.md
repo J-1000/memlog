@@ -17,11 +17,13 @@ Agents need memory, but memory should be inspectable. `memlog` keeps the storage
 
 ## Install
 
+Download a prebuilt binary for Linux, macOS, or Windows (amd64/arm64) from the [releases page](https://github.com/J-1000/memlog/releases), or build from source:
+
 ```sh
 go install github.com/J-1000/memlog/cmd/memlog@latest
 ```
 
-Requires Go 1.22+ and `git` on `PATH`.
+Requires `git` on `PATH` (and Go 1.22+ when building from source). `memlog --version` prints the build version.
 
 ## Quick Start
 
@@ -79,6 +81,7 @@ A store syncs with plain `git pull` and `git push`. The store's `.gitattributes`
 | `memlog tags` | List distinct tags with live-fact counts |
 | `memlog subjects` | List distinct subjects with live-fact counts |
 | `memlog doctor [--fix]` | Check integrity and recover stale generated state |
+| `memlog stale --before DURATION` | List live facts untouched for DURATION (e.g. `90d`), oldest first |
 | `memlog mcp` | Serve memlog tools over the Model Context Protocol (stdio) |
 
 Global flags:
@@ -242,4 +245,6 @@ CI runs formatting, vet, and tests on Linux and macOS.
 - Journal loading indexes all entries before applying refs and replays them in ULID order, so resolution does not depend on line order within or across files.
 - A batch `add --stdin` of more than one fact commits as `memlog: add <N> facts` with the facts in the body.
 - `context` always prints the `# Memory` heading and exits 0 even when the store has no live facts, so it is safe to inject unconditionally.
+- `stale` measures from wall-clock time against each chain's newest entry; it is review tooling only, and memlog never expires facts itself. Durations accept Go syntax plus a day suffix (`90d`).
+- Stores record a format version in `meta.json`; commands reject stores with a newer version than the binary supports (`store version N not supported; upgrade memlog`).
 
