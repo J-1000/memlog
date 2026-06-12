@@ -41,6 +41,15 @@ func TestCLILifecycle(t *testing.T) {
 	require.Equal(t, "{\"clean\":true,\"fixed\":false,\"problems\":[]}\n", run(t, dir, bin, "--store", storeDir, "--json", "doctor"))
 	require.Contains(t, run(t, dir, "git", "log", "--oneline"), "memlog: retract")
 	require.Contains(t, run(t, dir, bin, "--store", storeDir, "render"), "unchanged")
+	stale := run(t, dir, bin, "--store", storeDir, "--ts", "2026-09-12T10:00:00Z", "stale", "--before", "90d")
+	staleLines := strings.Split(strings.TrimSpace(stale), "\n")
+	require.Len(t, staleLines, 2)
+	require.Contains(t, staleLines[0], "Third fact")
+	require.Contains(t, staleLines[1], "First fact updated")
+	_, code := runExit(t, dir, bin, "--store", storeDir, "--ts", "2026-06-12T10:30:00Z", "stale", "--before", "1h")
+	require.Equal(t, 1, code)
+	_, code = runExit(t, dir, bin, "--store", storeDir, "stale", "--before", "bogus")
+	require.Equal(t, 2, code)
 }
 
 func TestAddStdinBatch(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,6 +58,7 @@ func NewRoot() *cobra.Command {
 		a.tagsCmd(),
 		a.subjectsCmd(),
 		a.doctorCmd(),
+		a.staleCmd(),
 		a.mcpCmd(),
 	)
 	return root
@@ -687,6 +689,86 @@ func (a *app) doctorCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&fix, "fix", false, "fix problems")
 	return cmd
+}
+
+// staleCmd lists live facts whose chain has not been touched within the
+// given duration. Review tooling only — memlog never expires facts.
+func (a *app) staleCmd() *cobra.Command {
+	var before string
+	cmd := &cobra.Command{
+		Use:  "stale --before DURATION",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			d, err := parseDuration(before)
+			if err != nil {
+				return store.ErrUsage{Err: err}
+			}
+			st, err := a.open()
+			if err != nil {
+				return err
+			}
+			state, err := st.Load()
+			if err != nil {
+				return err
+			}
+			now, err := a.now()
+			if err != nil {
+				return err
+			}
+			cutoff := now.Add(-d).Format(time.RFC3339)
+			var hits []model.Entry
+			for _, e := range state.LiveHeads() {
+				if e.TS <= cutoff {
+					hits = append(hits, e)
+				}
+			}
+			sort.Slice(hits, func(i, j int) bool {
+				if hits[i].TS != hits[j].TS {
+					return hits[i].TS < hits[j].TS
+				}
+				return hits[i].ID < hits[j].ID
+			})
+			if a.jsonOut {
+				if hits == nil {
+					hits = []model.Entry{}
+				}
+				if err := json.NewEncoder(cmd.OutOrStdout()).Encode(hits); err != nil {
+					return err
+				}
+			} else {
+				for _, e := range hits {
+					subj := e.Subject
+					if subj == "" {
+						subj = "-"
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "%s  %s  %s  %s\n", e.TS, e.ID[:8], subj, e.Fact)
+				}
+			}
+			if len(hits) == 0 {
+				return store.ErrNotFound{Err: fmt.Errorf("no stale facts")}
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&before, "before", "", "duration like 90d, 12h, or 30m")
+	_ = cmd.MarkFlagRequired("before")
+	return cmd
+}
+
+// parseDuration accepts Go durations plus a day suffix (e.g. 90d).
+func parseDuration(s string) (time.Duration, error) {
+	if days, ok := strings.CutSuffix(s, "d"); ok {
+		n, err := strconv.Atoi(days)
+		if err != nil || n < 0 {
+			return 0, fmt.Errorf("invalid duration %q", s)
+		}
+		return time.Duration(n) * 24 * time.Hour, nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil || d < 0 {
+		return 0, fmt.Errorf("invalid duration %q", s)
+	}
+	return d, nil
 }
 
 func (a *app) mcpCmd() *cobra.Command {
