@@ -276,7 +276,9 @@ func (st State) ResolvePrefix(prefix string) (string, error) {
 	return matches[0], nil
 }
 
-func (s Store) Append(ctx context.Context, e model.Entry, renderMemory func(State) []byte, commitBody string) error {
+// Append validates and appends entries under one lock, one journal
+// replay, and one git commit.
+func (s Store) Append(ctx context.Context, entries []model.Entry, renderMemory func(State) []byte, message, body string) error {
 	lock := flock.New(filepath.Join(s.Dir, "journal.lock"))
 	lockCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -292,42 +294,54 @@ func (s Store) Append(ctx context.Context, e model.Entry, renderMemory func(Stat
 	if err != nil {
 		return err
 	}
-	if err := state.Accept(e); err != nil {
-		return ErrUsage{Err: err}
+	for _, e := range entries {
+		if err := state.Accept(e); err != nil {
+			return ErrUsage{Err: err}
+		}
 	}
-	month := e.TS[:7]
-	journalRel := filepath.Join("journal", month+".jsonl")
-	journalPath := filepath.Join(s.Dir, journalRel)
-	if err := os.MkdirAll(filepath.Dir(journalPath), 0o755); err != nil {
-		return err
+	relPaths := []string{"MEMORY.md"}
+	written := map[string]*os.File{}
+	defer func() {
+		for _, f := range written {
+			f.Close()
+		}
+	}()
+	for _, e := range entries {
+		journalRel := filepath.Join("journal", e.TS[:7]+".jsonl")
+		f := written[journalRel]
+		if f == nil {
+			journalPath := filepath.Join(s.Dir, journalRel)
+			if err := os.MkdirAll(filepath.Dir(journalPath), 0o755); err != nil {
+				return err
+			}
+			f, err = os.OpenFile(journalPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+			if err != nil {
+				return err
+			}
+			written[journalRel] = f
+			relPaths = append(relPaths, journalRel)
+		}
+		line, err := json.Marshal(e)
+		if err != nil {
+			return err
+		}
+		if _, err := f.Write(append(line, '\n')); err != nil {
+			return err
+		}
 	}
-	line, err := json.Marshal(e)
-	if err != nil {
-		return err
-	}
-	f, err := os.OpenFile(journalPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	if _, err := f.Write(append(line, '\n')); err != nil {
-		f.Close()
-		return err
-	}
-	if err := f.Sync(); err != nil {
-		f.Close()
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
+	for _, f := range written {
+		if err := f.Sync(); err != nil {
+			return err
+		}
 	}
 	if err := AtomicWrite(filepath.Join(s.Dir, "MEMORY.md"), renderMemory(state)); err != nil {
 		return err
 	}
-	paths, err := s.repoPaths(journalRel, "MEMORY.md")
+	paths, err := s.repoPaths(relPaths...)
 	if err != nil {
 		return err
 	}
-	if err := gitio.Commit(ctx, s.RepoDir, "memlog: "+e.Op+" "+e.ID, commitBody, paths...); err != nil {
+	if err := gitio.Commit(ctx, s.RepoDir, message, body, paths...); err != nil {
 		return ErrGit{Err: err}
 	}
 	return nil

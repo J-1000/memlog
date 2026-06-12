@@ -194,7 +194,7 @@ func (a *app) writeEntry(cmd *cobra.Command, st store.Store, e model.Entry) erro
 	}
 	body += "\n\nMemlog-Session: " + e.Session
 	body += "\nMemlog-Agent: " + e.Agent
-	if err := st.Append(cmd.Context(), e, render.Memory, body); err != nil {
+	if err := st.Append(cmd.Context(), []model.Entry{e}, render.Memory, "memlog: "+e.Op+" "+e.ID, body); err != nil {
 		return err
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), e.ID)
