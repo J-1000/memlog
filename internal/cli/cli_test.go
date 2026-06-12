@@ -30,6 +30,8 @@ func TestCLILifecycle(t *testing.T) {
 	require.Contains(t, list, "Third fact")
 	require.NotContains(t, list, "Second fact")
 	require.Contains(t, run(t, dir, bin, "--store", storeDir, "list", "--subject", "db"), "First fact updated")
+	searchJSON := run(t, dir, bin, "--store", storeDir, "--json", "search", "updated")
+	require.True(t, strings.HasPrefix(searchJSON, `[{"id":`), searchJSON)
 	require.Contains(t, run(t, dir, bin, "--store", storeDir, "show", id1[:8]), "status: live")
 	retractShow := run(t, dir, bin, "--store", storeDir, "show", rid[:8])
 	require.Contains(t, retractShow, "Second fact")

@@ -339,7 +339,7 @@ func (a *app) searchCmd() *cobra.Command {
 			} else {
 				hits = state.LiveHeads()
 			}
-			return printFacts(cmd, filterFacts(hits, tag, subject, args[0]))
+			return a.printFacts(cmd, filterFacts(hits, tag, subject, args[0]))
 		},
 	}
 	cmd.Flags().StringVar(&tag, "tag", "", "tag")
@@ -365,7 +365,7 @@ func (a *app) listCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printFacts(cmd, filterFacts(state.LiveHeads(), tag, subject, ""))
+			return a.printFacts(cmd, filterFacts(state.LiveHeads(), tag, subject, ""))
 		},
 	}
 	cmd.Flags().StringVar(&tag, "tag", "", "tag")
@@ -401,13 +401,22 @@ func filterFacts(entries []model.Entry, tag, subject, query string) []model.Entr
 	return out
 }
 
-func printFacts(cmd *cobra.Command, hits []model.Entry) error {
-	for _, e := range hits {
-		subj := e.Subject
-		if subj == "" {
-			subj = "-"
+func (a *app) printFacts(cmd *cobra.Command, hits []model.Entry) error {
+	if a.jsonOut {
+		if hits == nil {
+			hits = []model.Entry{}
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "%s  %s  %s\n", e.ID[:8], subj, e.Fact)
+		if err := json.NewEncoder(cmd.OutOrStdout()).Encode(hits); err != nil {
+			return err
+		}
+	} else {
+		for _, e := range hits {
+			subj := e.Subject
+			if subj == "" {
+				subj = "-"
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%s  %s  %s\n", e.ID[:8], subj, e.Fact)
+		}
 	}
 	if len(hits) == 0 {
 		return store.ErrNotFound{Err: fmt.Errorf("no matches")}
