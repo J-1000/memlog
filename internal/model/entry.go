@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -62,7 +63,7 @@ func Validate(e Entry) error {
 	default:
 		return fmt.Errorf("op must be add, supersede, or retract")
 	}
-	if len(e.Fact) > 2000 {
+	if utf8.RuneCountInString(e.Fact) > 2000 {
 		return fmt.Errorf("fact must be at most 2000 characters")
 	}
 	if hasControlOrNewline(e.Fact) {
@@ -88,7 +89,7 @@ func Validate(e Entry) error {
 	if len(e.Agent) > 64 || !printableASCII(e.Agent) {
 		return fmt.Errorf("agent must be 0-64 printable ASCII characters")
 	}
-	if len(e.Source) > 500 || hasControlOrNewline(e.Source) {
+	if utf8.RuneCountInString(e.Source) > 500 || hasControlOrNewline(e.Source) {
 		return fmt.Errorf("source must be at most 500 single-line characters")
 	}
 	if e.Op == OpAdd && e.Ref != nil {

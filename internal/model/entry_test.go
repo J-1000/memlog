@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,7 @@ func TestValidate(t *testing.T) {
 		"bad op":            func(e Entry) Entry { e.Op = "edit"; return e },
 		"missing fact":      func(e Entry) Entry { e.Fact = ""; return e },
 		"retract with fact": func(e Entry) Entry { e.Op = OpRetract; e.Fact = "x"; e.Ref = &ref; return e },
-		"fact too long":     func(e Entry) Entry { e.Fact = string(make([]byte, 2001)); return e },
+		"fact too long":     func(e Entry) Entry { e.Fact = strings.Repeat("x", 2001); return e },
 		"fact newline":      func(e Entry) Entry { e.Fact = "one\ntwo"; return e },
 		"too many tags": func(e Entry) Entry {
 			e.Tags = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"}
@@ -43,17 +44,23 @@ func TestValidate(t *testing.T) {
 		"bad session":        func(e Entry) Entry { e.Session = "bad\nsession"; return e },
 		"agent too long":     func(e Entry) Entry { e.Agent = string(make([]byte, 65)); return e },
 		"source multiline":   func(e Entry) Entry { e.Source = "one\ntwo"; return e },
+		"source too long":    func(e Entry) Entry { e.Source = strings.Repeat("x", 501); return e },
 		"add with ref":       func(e Entry) Entry { e.Ref = &ref; return e },
 		"supersede no ref":   func(e Entry) Entry { e.Op = OpSupersede; return e },
 		"supersede bad ref":  func(e Entry) Entry { bad := "bad"; e.Op = OpSupersede; e.Ref = &bad; return e },
 		"valid supersede":    func(e Entry) Entry { e.Op = OpSupersede; e.Ref = &ref; return e },
 		"valid empty fields": func(e Entry) Entry { e.Tags = nil; e.Subject = ""; e.Agent = ""; e.Source = ""; return e },
+		"valid unicode size": func(e Entry) Entry {
+			e.Fact = strings.Repeat("ø", 2000)
+			e.Source = strings.Repeat("ø", 500)
+			return e
+		},
 	}
 	require.NoError(t, Validate(validEntry()))
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
 			err := Validate(mutate(validEntry()))
-			if name == "valid supersede" || name == "valid empty fields" {
+			if name == "valid supersede" || name == "valid empty fields" || name == "valid unicode size" {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
