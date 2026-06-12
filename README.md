@@ -50,10 +50,15 @@ By default, `memlog` discovers `./.memlog` by walking upward from the current di
 │   └── 2026-06.jsonl
 ├── MEMORY.md
 ├── meta.json
+├── .gitattributes
 └── .gitignore
 ```
 
 `journal/*.jsonl` is the source of truth. `MEMORY.md` is generated from live facts and committed so humans can review memory without using the CLI.
+
+## Syncing Between Machines
+
+A store syncs with plain `git pull` and `git push`. The store's `.gitattributes` marks journal files with `merge=union`, so concurrent appends from different machines merge without conflicts: lines are append-only and ULID ids are time-ordered, so memlog re-sorts entries by id when loading and the result is independent of line order. Stores created by older memlog versions can be upgraded with `memlog doctor --fix`, which appends any missing `.gitignore` and `.gitattributes` lines.
 
 ## Commands
 
@@ -148,7 +153,7 @@ memlog doctor
 memlog doctor --fix
 ```
 
-`doctor --fix` re-renders `MEMORY.md` and commits recovered store changes without deleting journal lines or rewriting git history.
+`doctor --fix` re-renders `MEMORY.md`, appends missing support-file lines, and commits recovered store changes without deleting journal lines or rewriting git history.
 
 ## Development
 
