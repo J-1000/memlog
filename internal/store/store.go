@@ -21,9 +21,18 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-// GitAttributes union-merges journal files so concurrent appends from
-// synced machines combine instead of conflicting.
-const GitAttributes = "journal/*.jsonl merge=union\n"
+// supportFiles lists the store support files and the lines each must
+// contain. init writes them in full; doctor --fix appends missing lines
+// to stores created by older versions.
+var supportFiles = []struct {
+	name  string
+	lines []string
+}{
+	{".gitignore", []string{"*.lock", "*.tmp-*"}},
+	// Journal lines are append-only with ULID ids, so union-merging
+	// concurrent appends from synced machines is safe.
+	{".gitattributes", []string{"journal/*.jsonl merge=union"}},
+}
 
 type Store struct {
 	Dir     string
@@ -97,11 +106,10 @@ func Init(ctx context.Context, path string, now time.Time, renderMemory func(Sta
 	if err := writeJSON(filepath.Join(dir, "meta.json"), meta); err != nil {
 		return Store{}, Meta{}, err
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.lock\n*.tmp-*\n"), 0o644); err != nil {
-		return Store{}, Meta{}, err
-	}
-	if err := os.WriteFile(filepath.Join(dir, ".gitattributes"), []byte(GitAttributes), 0o644); err != nil {
-		return Store{}, Meta{}, err
+	for _, sf := range supportFiles {
+		if err := os.WriteFile(filepath.Join(dir, sf.name), []byte(strings.Join(sf.lines, "\n")+"\n"), 0o644); err != nil {
+			return Store{}, Meta{}, err
+		}
 	}
 	if err := os.WriteFile(filepath.Join(dir, "MEMORY.md"), renderMemory(State{Meta: meta}), 0o644); err != nil {
 		return Store{}, Meta{}, err
@@ -323,6 +331,61 @@ func (s Store) Append(ctx context.Context, e model.Entry, renderMemory func(Stat
 		return ErrGit{Err: err}
 	}
 	return nil
+}
+
+// SupportFileProblems reports required support-file lines missing from
+// the store, in a stable order.
+func (s Store) SupportFileProblems() []string {
+	var problems []string
+	for _, sf := range supportFiles {
+		for _, line := range s.missingSupportLines(sf.name, sf.lines) {
+			problems = append(problems, fmt.Sprintf("%s is missing %q", sf.name, line))
+		}
+	}
+	return problems
+}
+
+// UpgradeSupportFiles appends missing required lines to the store's
+// support files and returns the names of the files it changed. Existing
+// lines are never rewritten.
+func (s Store) UpgradeSupportFiles() ([]string, error) {
+	var changed []string
+	for _, sf := range supportFiles {
+		missing := s.missingSupportLines(sf.name, sf.lines)
+		if len(missing) == 0 {
+			continue
+		}
+		path := filepath.Join(s.Dir, sf.name)
+		cur, err := os.ReadFile(path)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+		next := string(cur)
+		if next != "" && !strings.HasSuffix(next, "\n") {
+			next += "\n"
+		}
+		next += strings.Join(missing, "\n") + "\n"
+		if err := os.WriteFile(path, []byte(next), 0o644); err != nil {
+			return nil, err
+		}
+		changed = append(changed, sf.name)
+	}
+	return changed, nil
+}
+
+func (s Store) missingSupportLines(name string, lines []string) []string {
+	b, _ := os.ReadFile(filepath.Join(s.Dir, name))
+	have := map[string]bool{}
+	for _, l := range strings.Split(string(b), "\n") {
+		have[strings.TrimSpace(l)] = true
+	}
+	var missing []string
+	for _, l := range lines {
+		if !have[l] {
+			missing = append(missing, l)
+		}
+	}
+	return missing
 }
 
 func (s Store) repoPaths(paths ...string) ([]string, error) {

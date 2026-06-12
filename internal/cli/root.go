@@ -440,6 +440,14 @@ func (a *app) doctorCmd() *cobra.Command {
 						}
 					}
 				}
+				if sup := st.SupportFileProblems(); len(sup) > 0 {
+					problems = append(problems, sup...)
+					if fix {
+						if _, err := st.UpgradeSupportFiles(); err != nil {
+							return err
+						}
+					}
+				}
 				paths, err := st.RepoPaths(".")
 				if err == nil {
 					dirty, derr := gitio.HasUncommitted(cmd.Context(), st.RepoDir, paths...)

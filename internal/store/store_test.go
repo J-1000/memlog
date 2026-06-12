@@ -41,7 +41,27 @@ func TestInitWritesSupportFiles(t *testing.T) {
 	require.Equal(t, "*.lock\n*.tmp-*\n", string(ignore))
 	attrs, err := os.ReadFile(filepath.Join(storeDir, ".gitattributes"))
 	require.NoError(t, err)
-	require.Equal(t, GitAttributes, string(attrs))
+	require.Equal(t, "journal/*.jsonl merge=union\n", string(attrs))
+}
+
+func TestUpgradeSupportFiles(t *testing.T) {
+	dir := initGitStore(t)
+	st, err := Open(filepath.Join(dir, ".memlog"))
+	require.NoError(t, err)
+	require.Empty(t, st.SupportFileProblems())
+	require.NoError(t, os.Remove(filepath.Join(st.Dir, ".gitattributes")))
+	require.NoError(t, os.WriteFile(filepath.Join(st.Dir, ".gitignore"), []byte("*.lock\n"), 0o644))
+	require.Equal(t, []string{
+		`.gitignore is missing "*.tmp-*"`,
+		`.gitattributes is missing "journal/*.jsonl merge=union"`,
+	}, st.SupportFileProblems())
+	changed, err := st.UpgradeSupportFiles()
+	require.NoError(t, err)
+	require.Equal(t, []string{".gitignore", ".gitattributes"}, changed)
+	require.Empty(t, st.SupportFileProblems())
+	ignore, err := os.ReadFile(filepath.Join(st.Dir, ".gitignore"))
+	require.NoError(t, err)
+	require.Equal(t, "*.lock\n*.tmp-*\n", string(ignore))
 }
 
 func TestLoadToleratesForwardRefs(t *testing.T) {
