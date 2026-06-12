@@ -44,6 +44,7 @@ func NewRoot() *cobra.Command {
 		a.historyCmd(),
 		a.showCmd(),
 		a.searchCmd(),
+		a.listCmd(),
 		a.renderCmd(),
 		a.sessionsCmd(),
 		a.doctorCmd(),
@@ -317,11 +318,8 @@ func (a *app) searchCmd() *cobra.Command {
 		Use:  "search QUERY",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if tag != "" && !model.ValidTag(tag) {
-				return store.ErrUsage{Err: fmt.Errorf("invalid tag %q", tag)}
-			}
-			if subject != "" && !model.ValidTag(subject) {
-				return store.ErrUsage{Err: fmt.Errorf("invalid subject %q", subject)}
+			if err := validateFilters(tag, subject); err != nil {
+				return err
 			}
 			st, err := a.open()
 			if err != nil {
@@ -348,6 +346,41 @@ func (a *app) searchCmd() *cobra.Command {
 	cmd.Flags().StringVar(&subject, "subject", "", "subject")
 	cmd.Flags().BoolVar(&all, "all", false, "include non-live entries")
 	return cmd
+}
+
+func (a *app) listCmd() *cobra.Command {
+	var tag, subject string
+	cmd := &cobra.Command{
+		Use:  "list",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateFilters(tag, subject); err != nil {
+				return err
+			}
+			st, err := a.open()
+			if err != nil {
+				return err
+			}
+			state, err := st.Load()
+			if err != nil {
+				return err
+			}
+			return printFacts(cmd, filterFacts(state.LiveHeads(), tag, subject, ""))
+		},
+	}
+	cmd.Flags().StringVar(&tag, "tag", "", "tag")
+	cmd.Flags().StringVar(&subject, "subject", "", "subject")
+	return cmd
+}
+
+func validateFilters(tag, subject string) error {
+	if tag != "" && !model.ValidTag(tag) {
+		return store.ErrUsage{Err: fmt.Errorf("invalid tag %q", tag)}
+	}
+	if subject != "" && !model.ValidTag(subject) {
+		return store.ErrUsage{Err: fmt.Errorf("invalid subject %q", subject)}
+	}
+	return nil
 }
 
 func filterFacts(entries []model.Entry, tag, subject, query string) []model.Entry {
