@@ -173,6 +173,7 @@ func readFacts(r io.Reader) ([]string, error) {
 
 func (a *app) supersedeCmd() *cobra.Command {
 	var tags, subject, session, agent, source string
+	var inherit bool
 	cmd := &cobra.Command{
 		Use:  "supersede REF FACT",
 		Args: cobra.ExactArgs(2),
@@ -193,11 +194,22 @@ func (a *app) supersedeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			e := store.NewEntry(model.OpSupersede, args[1], parseTags(tags), subject, session, agent, source, &ref, now)
+			entryTags := parseTags(tags)
+			if inherit {
+				target := state.ByID[ref]
+				if !cmd.Flags().Changed("tags") {
+					entryTags = target.Tags
+				}
+				if !cmd.Flags().Changed("subject") {
+					subject = target.Subject
+				}
+			}
+			e := store.NewEntry(model.OpSupersede, args[1], entryTags, subject, session, agent, source, &ref, now)
 			return a.writeEntry(cmd, st, e)
 		},
 	}
 	addEntryFlags(cmd, &tags, &subject, &session, &agent, &source)
+	cmd.Flags().BoolVar(&inherit, "inherit", false, "copy tags and subject from REF when not given")
 	return cmd
 }
 

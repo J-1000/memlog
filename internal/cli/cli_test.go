@@ -68,6 +68,26 @@ func TestAddStdinBatch(t *testing.T) {
 	require.Equal(t, 2, code)
 }
 
+func TestSupersedeInherit(t *testing.T) {
+	dir := t.TempDir()
+	bin := buildCLI(t)
+	run(t, dir, "git", "init")
+	run(t, dir, "git", "config", "user.email", "test@example.com")
+	run(t, dir, "git", "config", "user.name", "Test User")
+	storeDir := filepath.Join(dir, ".memlog")
+	run(t, dir, bin, "--store", storeDir, "init")
+	id := strings.TrimSpace(run(t, dir, bin, "--store", storeDir, "add", "v1", "--session", "s1", "--tags", "infra,staging", "--subject", "db"))
+	run(t, dir, bin, "--store", storeDir, "supersede", id[:8], "v2", "--session", "s2", "--inherit")
+	hit := run(t, dir, bin, "--store", storeDir, "--json", "search", "v2")
+	require.Contains(t, hit, `"tags":["infra","staging"]`)
+	require.Contains(t, hit, `"subject":"db"`)
+	id2 := strings.TrimSpace(run(t, dir, bin, "--store", storeDir, "search", "v2"))[:8]
+	run(t, dir, bin, "--store", storeDir, "supersede", id2, "v3", "--session", "s3", "--inherit", "--tags", "ops")
+	hit = run(t, dir, bin, "--store", storeDir, "--json", "search", "v3")
+	require.Contains(t, hit, `"tags":["ops"]`)
+	require.Contains(t, hit, `"subject":"db"`)
+}
+
 func TestDoctorFixUpgradesSupportFiles(t *testing.T) {
 	dir := t.TempDir()
 	bin := buildCLI(t)
