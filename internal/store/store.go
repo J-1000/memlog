@@ -59,7 +59,7 @@ func Resolve(start, explicit string) (Store, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return Store{}, fmt.Errorf("memlog store not found")
+			return Store{}, ErrNotFound{Err: fmt.Errorf("memlog store not found")}
 		}
 		dir = parent
 	}
@@ -70,7 +70,7 @@ func Open(dir string) (Store, error) { return open(filepath.Clean(dir)) }
 func open(dir string) (Store, error) {
 	dir = canonical(dir)
 	if !exists(filepath.Join(dir, "meta.json")) {
-		return Store{}, fmt.Errorf("memlog store not found at %s", dir)
+		return Store{}, ErrNotFound{Err: fmt.Errorf("memlog store not found at %s", dir)}
 	}
 	repoDir := dir
 	if root, err := gitio.WorkTreeRoot(context.Background(), dir); err == nil {
