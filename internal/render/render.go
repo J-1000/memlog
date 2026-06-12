@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/J-1000/memlog/internal/model"
 	"github.com/J-1000/memlog/internal/store"
@@ -57,6 +58,51 @@ func Memory(st store.State) []byte {
 		)
 	}
 	return b.Bytes()
+}
+
+// Context renders a compact live-fact digest for injection into an
+// agent's context. It returns the digest and how many facts were
+// dropped to stay within maxChars (0 means unlimited). Facts are only
+// dropped whole, never truncated mid-fact.
+func Context(st store.State, subject string, maxChars int) ([]byte, int) {
+	live := st.LiveHeads()
+	if subject != "" {
+		var filtered []model.Entry
+		for _, e := range live {
+			if e.Subject == subject {
+				filtered = append(filtered, e)
+			}
+		}
+		live = filtered
+	}
+	subjects, sections := liveSections(live)
+	var chunks []string
+	for _, subj := range subjects {
+		for i, e := range sections[subj] {
+			var c strings.Builder
+			if i == 0 {
+				fmt.Fprintf(&c, "\n## %s\n\n", sectionTitle(subj))
+			}
+			c.WriteString("- " + e.Fact)
+			for _, tag := range e.Tags {
+				c.WriteString(" #" + tag)
+			}
+			c.WriteByte('\n')
+			chunks = append(chunks, c.String())
+		}
+	}
+	var b bytes.Buffer
+	b.WriteString("# Memory\n")
+	used := utf8.RuneCount(b.Bytes())
+	for i, c := range chunks {
+		n := utf8.RuneCountInString(c)
+		if maxChars > 0 && used+n > maxChars {
+			return b.Bytes(), len(chunks) - i
+		}
+		b.WriteString(c)
+		used += n
+	}
+	return b.Bytes(), 0
 }
 
 // liveSections groups live facts by subject: named subjects sorted

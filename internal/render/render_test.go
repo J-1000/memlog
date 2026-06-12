@@ -22,6 +22,22 @@ func TestGoldenRender(t *testing.T) {
 	}
 }
 
+func TestContextDigest(t *testing.T) {
+	state := fixtureState(t, "subjects")
+	out, dropped := Context(state, "", 0)
+	require.Zero(t, dropped)
+	require.Equal(t, "# Memory\n\n## alpha\n\n- Alpha fact. #infra\n\n## (no subject)\n\n- No subject fact. #misc\n", string(out))
+	out, dropped = Context(state, "alpha", 0)
+	require.Zero(t, dropped)
+	require.Equal(t, "# Memory\n\n## alpha\n\n- Alpha fact. #infra\n", string(out))
+	out, dropped = Context(state, "", 45)
+	require.Equal(t, 1, dropped)
+	require.Equal(t, "# Memory\n\n## alpha\n\n- Alpha fact. #infra\n", string(out))
+	out, dropped = Context(state, "", 10)
+	require.Equal(t, 2, dropped)
+	require.Equal(t, "# Memory\n", string(out))
+}
+
 func fixtureState(t *testing.T, name string) store.State {
 	t.Helper()
 	st := store.State{

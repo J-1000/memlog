@@ -45,6 +45,7 @@ func NewRoot() *cobra.Command {
 		a.showCmd(),
 		a.searchCmd(),
 		a.listCmd(),
+		a.contextCmd(),
 		a.renderCmd(),
 		a.sessionsCmd(),
 		a.tagsCmd(),
@@ -394,6 +395,39 @@ func (a *app) listCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&tag, "tag", "", "tag")
 	cmd.Flags().StringVar(&subject, "subject", "", "subject")
+	return cmd
+}
+
+func (a *app) contextCmd() *cobra.Command {
+	var subject string
+	var maxChars int
+	cmd := &cobra.Command{
+		Use:  "context",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateFilters("", subject); err != nil {
+				return err
+			}
+			st, err := a.open()
+			if err != nil {
+				return err
+			}
+			state, err := st.Load()
+			if err != nil {
+				return err
+			}
+			out, dropped := render.Context(state, subject, maxChars)
+			if _, err := cmd.OutOrStdout().Write(out); err != nil {
+				return err
+			}
+			if dropped > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "truncated: %d facts omitted to stay within %d chars\n", dropped, maxChars)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&subject, "subject", "", "subject")
+	cmd.Flags().IntVar(&maxChars, "max-chars", 0, "character budget; whole facts are dropped to fit")
 	return cmd
 }
 
