@@ -50,7 +50,7 @@ func Validate(e Entry) error {
 		return fmt.Errorf("id must be a ULID")
 	}
 	ts, err := time.Parse(time.RFC3339, e.TS)
-	if err != nil || !ts.Equal(ts.UTC()) || e.TS != ts.UTC().Format(time.RFC3339) {
+	if err != nil || e.TS != ts.UTC().Format(time.RFC3339) {
 		return fmt.Errorf("ts must be RFC3339 UTC with seconds precision")
 	}
 	switch e.Op {
