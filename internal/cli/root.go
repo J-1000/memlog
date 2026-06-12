@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -342,7 +343,7 @@ func (a *app) renderCmd() *cobra.Command {
 				return err
 			}
 			next := render.Memory(state)
-			path := st.Dir + string(os.PathSeparator) + "MEMORY.md"
+			path := filepath.Join(st.Dir, "MEMORY.md")
 			cur, _ := os.ReadFile(path)
 			if string(cur) == string(next) {
 				fmt.Fprintln(cmd.OutOrStdout(), "unchanged")
@@ -430,11 +431,11 @@ func (a *app) doctorCmd() *cobra.Command {
 			}
 			if err == nil {
 				next := render.Memory(state)
-				cur, _ := os.ReadFile(st.Dir + string(os.PathSeparator) + "MEMORY.md")
+				cur, _ := os.ReadFile(filepath.Join(st.Dir, "MEMORY.md"))
 				if string(cur) != string(next) {
 					problems = append(problems, "MEMORY.md is stale")
 					if fix {
-						if err := store.AtomicWrite(st.Dir+string(os.PathSeparator)+"MEMORY.md", next); err != nil {
+						if err := store.AtomicWrite(filepath.Join(st.Dir, "MEMORY.md"), next); err != nil {
 							return err
 						}
 					}
