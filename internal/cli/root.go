@@ -72,7 +72,7 @@ func (a *app) now() (time.Time, error) {
 	return t.UTC(), nil
 }
 
-func (a *app) open() (store.Store, error) { return store.Resolve(".", a.storePath) }
+func (a *app) open() (store.Store, error) { return store.Resolve(a.storePath) }
 
 func (a *app) initCmd() *cobra.Command {
 	return &cobra.Command{

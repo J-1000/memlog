@@ -41,7 +41,7 @@ type State struct {
 	Meta       Meta
 }
 
-func Resolve(start, explicit string) (Store, error) {
+func Resolve(explicit string) (Store, error) {
 	if explicit != "" {
 		return open(filepath.Clean(explicit))
 	}
