@@ -48,6 +48,7 @@ func NewRoot() *cobra.Command {
 		a.renderCmd(),
 		a.sessionsCmd(),
 		a.tagsCmd(),
+		a.subjectsCmd(),
 		a.doctorCmd(),
 	)
 	return root
@@ -522,6 +523,15 @@ func (a *app) sessionsCmd() *cobra.Command {
 
 func (a *app) tagsCmd() *cobra.Command {
 	return a.taxonomyCmd("tags", func(e model.Entry) []string { return e.Tags })
+}
+
+func (a *app) subjectsCmd() *cobra.Command {
+	return a.taxonomyCmd("subjects", func(e model.Entry) []string {
+		if e.Subject == "" {
+			return nil
+		}
+		return []string{e.Subject}
+	})
 }
 
 // taxonomyCmd lists distinct values with live-fact counts, sorted

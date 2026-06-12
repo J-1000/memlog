@@ -36,6 +36,7 @@ func TestCLILifecycle(t *testing.T) {
 	retractShow := run(t, dir, bin, "--store", storeDir, "show", rid[:8])
 	require.Contains(t, retractShow, "Second fact")
 	require.Contains(t, retractShow, "status: retracted")
+	require.Equal(t, "1  db\n", run(t, dir, bin, "--store", storeDir, "subjects"))
 	require.Contains(t, run(t, dir, bin, "--store", storeDir, "doctor"), "clean")
 	require.Equal(t, "{\"clean\":true,\"fixed\":false,\"problems\":[]}\n", run(t, dir, bin, "--store", storeDir, "--json", "doctor"))
 	require.Contains(t, run(t, dir, "git", "log", "--oneline"), "memlog: retract")
