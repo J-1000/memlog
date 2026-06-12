@@ -22,30 +22,10 @@ func Memory(st store.State) []byte {
 	}
 	retracted := len(st.Retracted)
 	fmt.Fprintf(&b, "# Memory\n\n_Last updated: %s · %d live facts · %d retracted · store %s_\n\n", newest, len(live), retracted, st.Meta.StoreID)
-	sections := map[string][]model.Entry{}
-	var subjects []string
-	for _, e := range live {
-		key := e.Subject
-		sections[key] = append(sections[key], e)
-	}
-	for subject := range sections {
-		if subject != "" {
-			subjects = append(subjects, subject)
-		}
-	}
-	slices.Sort(subjects)
-	if _, ok := sections[""]; ok {
-		subjects = append(subjects, "")
-	}
+	subjects, sections := liveSections(live)
 	for _, subject := range subjects {
-		title := subject
-		if title == "" {
-			title = "(no subject)"
-		}
-		fmt.Fprintf(&b, "## %s\n\n", title)
-		items := sections[subject]
-		sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
-		for _, e := range items {
+		fmt.Fprintf(&b, "## %s\n\n", sectionTitle(subject))
+		for _, e := range sections[subject] {
 			fmt.Fprintf(&b, "- %s", e.Fact)
 			if len(e.Tags) > 0 {
 				b.WriteByte(' ')
@@ -77,6 +57,36 @@ func Memory(st store.State) []byte {
 		)
 	}
 	return b.Bytes()
+}
+
+// liveSections groups live facts by subject: named subjects sorted
+// ascending, the empty subject last, facts within a section by ULID.
+func liveSections(live []model.Entry) ([]string, map[string][]model.Entry) {
+	sections := map[string][]model.Entry{}
+	var subjects []string
+	for _, e := range live {
+		sections[e.Subject] = append(sections[e.Subject], e)
+	}
+	for subject := range sections {
+		if subject != "" {
+			subjects = append(subjects, subject)
+		}
+	}
+	slices.Sort(subjects)
+	if _, ok := sections[""]; ok {
+		subjects = append(subjects, "")
+	}
+	for _, items := range sections {
+		sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
+	}
+	return subjects, sections
+}
+
+func sectionTitle(subject string) string {
+	if subject == "" {
+		return "(no subject)"
+	}
+	return subject
 }
 
 func dateOnly(ts string) string {
