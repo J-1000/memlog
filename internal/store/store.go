@@ -453,6 +453,19 @@ func AtomicWrite(path string, b []byte) error {
 	return os.Rename(tmp, path)
 }
 
+// CommitText returns the git commit message and body for a single
+// appended entry: `memlog: <op> <id>`, then the fact (or `retracts
+// <ref>`) and the provenance trailers.
+func CommitText(e model.Entry) (message, body string) {
+	body = e.Fact
+	if e.Op == model.OpRetract && e.Ref != nil {
+		body = "retracts " + *e.Ref
+	}
+	body += "\n\nMemlog-Session: " + e.Session
+	body += "\nMemlog-Agent: " + e.Agent
+	return "memlog: " + e.Op + " " + e.ID, body
+}
+
 func NewEntry(op, fact string, tags []string, subject, session, agent, source string, ref *string, ts time.Time) model.Entry {
 	return NewEntries(op, []string{fact}, tags, subject, session, agent, source, ref, ts)[0]
 }
