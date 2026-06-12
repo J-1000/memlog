@@ -140,17 +140,25 @@ func (s Store) Load() (State, error) {
 	}
 	slices.Sort(files)
 	state := State{ByID: map[string]model.Entry{}, ReplacedBy: map[string]string{}, Retracted: map[string]string{}, Roots: map[string]string{}, Meta: meta}
+	// A git union merge can place a supersede/retract line before the entry
+	// it references, so index every entry first and apply refs in ULID order.
+	// ULIDs are time-ordered, which makes the result independent of line order.
+	var entries []model.Entry
 	for _, file := range files {
 		if err := readLines(file, func(line string) error {
 			var e model.Entry
 			if err := json.Unmarshal([]byte(line), &e); err != nil {
 				return fmt.Errorf("%s: %w", file, err)
 			}
-			if err := state.Accept(e); err != nil {
-				return err
-			}
+			entries = append(entries, e)
 			return nil
 		}); err != nil {
+			return State{}, err
+		}
+	}
+	slices.SortStableFunc(entries, func(a, b model.Entry) int { return strings.Compare(a.ID, b.ID) })
+	for _, e := range entries {
+		if err := state.Accept(e); err != nil {
 			return State{}, err
 		}
 	}

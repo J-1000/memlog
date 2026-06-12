@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -41,6 +42,28 @@ func TestInitWritesSupportFiles(t *testing.T) {
 	attrs, err := os.ReadFile(filepath.Join(storeDir, ".gitattributes"))
 	require.NoError(t, err)
 	require.Equal(t, GitAttributes, string(attrs))
+}
+
+func TestLoadToleratesForwardRefs(t *testing.T) {
+	dir := initGitStore(t)
+	st, err := Open(filepath.Join(dir, ".memlog"))
+	require.NoError(t, err)
+	add := NewEntry(model.OpAdd, "original", nil, "", "s1", "", "", nil, mustTime("2026-06-12T10:00:00Z"))
+	sup := NewEntry(model.OpSupersede, "replacement", nil, "", "s2", "", "", &add.ID, mustTime("2026-06-12T10:01:00Z"))
+	// Simulate a union merge that placed the supersede before its target.
+	var lines []byte
+	for _, e := range []model.Entry{sup, add} {
+		b, err := json.Marshal(e)
+		require.NoError(t, err)
+		lines = append(lines, append(b, '\n')...)
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(st.Dir, "journal", "2026-06.jsonl"), lines, 0o644))
+	state, err := st.Load()
+	require.NoError(t, err)
+	heads := state.LiveHeads()
+	require.Len(t, heads, 1)
+	require.Equal(t, "replacement", heads[0].Fact)
+	require.Equal(t, []model.Entry{state.ByID[add.ID], state.ByID[sup.ID]}, state.Entries)
 }
 
 func TestAppendMonthRolloverAndDeterminism(t *testing.T) {
