@@ -61,6 +61,8 @@ func TestAddStdinBatch(t *testing.T) {
 	log := run(t, dir, "git", "log", "--oneline")
 	require.Contains(t, log, "memlog: add 2 facts")
 	require.Contains(t, run(t, dir, bin, "--store", storeDir, "search", "second"), "second fact")
+	require.Equal(t, "2  batch\n", run(t, dir, bin, "--store", storeDir, "tags"))
+	require.Equal(t, "[{\"name\":\"batch\",\"count\":2}]\n", run(t, dir, bin, "--store", storeDir, "--json", "tags"))
 	_, code := runExit(t, dir, bin, "--store", storeDir, "add", "fact", "--stdin", "--session", "s1")
 	require.Equal(t, 2, code)
 }

@@ -47,6 +47,7 @@ func NewRoot() *cobra.Command {
 		a.listCmd(),
 		a.renderCmd(),
 		a.sessionsCmd(),
+		a.tagsCmd(),
 		a.doctorCmd(),
 	)
 	return root
@@ -513,6 +514,57 @@ func (a *app) sessionsCmd() *cobra.Command {
 			}
 			if len(rows) == 0 {
 				return store.ErrNotFound{Err: fmt.Errorf("no sessions")}
+			}
+			return nil
+		},
+	}
+}
+
+func (a *app) tagsCmd() *cobra.Command {
+	return a.taxonomyCmd("tags", func(e model.Entry) []string { return e.Tags })
+}
+
+// taxonomyCmd lists distinct values with live-fact counts, sorted
+// ascending so agents can reuse the existing taxonomy.
+func (a *app) taxonomyCmd(use string, valuesOf func(model.Entry) []string) *cobra.Command {
+	return &cobra.Command{
+		Use:  use,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			st, err := a.open()
+			if err != nil {
+				return err
+			}
+			state, err := st.Load()
+			if err != nil {
+				return err
+			}
+			counts := map[string]int{}
+			for _, e := range state.LiveHeads() {
+				for _, v := range valuesOf(e) {
+					counts[v]++
+				}
+			}
+			type row struct {
+				Name  string `json:"name"`
+				Count int    `json:"count"`
+			}
+			rows := []row{}
+			for name, count := range counts {
+				rows = append(rows, row{Name: name, Count: count})
+			}
+			sort.Slice(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
+			if a.jsonOut {
+				if err := json.NewEncoder(cmd.OutOrStdout()).Encode(rows); err != nil {
+					return err
+				}
+			} else {
+				for _, r := range rows {
+					fmt.Fprintf(cmd.OutOrStdout(), "%d  %s\n", r.Count, r.Name)
+				}
+			}
+			if len(rows) == 0 {
+				return store.ErrNotFound{Err: fmt.Errorf("no %s", use)}
 			}
 			return nil
 		},
