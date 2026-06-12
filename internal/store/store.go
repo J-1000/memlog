@@ -50,7 +50,7 @@ type State struct {
 	ByID       map[string]model.Entry
 	ReplacedBy map[string]string
 	Retracted  map[string]string
-	Roots      map[string]string
+	Parent     map[string]string
 	Meta       Meta
 }
 
@@ -147,10 +147,10 @@ func (s Store) Load() (State, error) {
 		return State{}, err
 	}
 	slices.Sort(files)
-	state := State{ByID: map[string]model.Entry{}, ReplacedBy: map[string]string{}, Retracted: map[string]string{}, Roots: map[string]string{}, Meta: meta}
+	state := State{ByID: map[string]model.Entry{}, ReplacedBy: map[string]string{}, Retracted: map[string]string{}, Parent: map[string]string{}, Meta: meta}
 	// A git union merge can place a supersede/retract line before the entry
-	// it references, so index every entry first and apply refs in ULID order.
-	// ULIDs are time-ordered, which makes the result independent of line order.
+	// it references, so index every entry first and apply refs second.
+	// Sorting by ULID makes the result independent of line order.
 	var entries []model.Entry
 	for _, file := range files {
 		if err := readLines(file, func(line string) error {
@@ -166,7 +166,12 @@ func (s Store) Load() (State, error) {
 	}
 	slices.SortStableFunc(entries, func(a, b model.Entry) int { return strings.Compare(a.ID, b.ID) })
 	for _, e := range entries {
-		if err := state.Accept(e); err != nil {
+		if err := state.index(e); err != nil {
+			return State{}, err
+		}
+	}
+	for _, e := range entries {
+		if err := state.applyRef(e); err != nil {
 			return State{}, err
 		}
 	}
@@ -183,46 +188,69 @@ func (s Store) Meta() (Meta, error) {
 }
 
 func (st *State) Accept(e model.Entry) error {
+	if err := st.index(e); err != nil {
+		return err
+	}
+	if err := st.applyRef(e); err != nil {
+		delete(st.ByID, e.ID)
+		st.Entries = st.Entries[:len(st.Entries)-1]
+		return err
+	}
+	return nil
+}
+
+func (st *State) index(e model.Entry) error {
 	if err := model.Validate(e); err != nil {
 		return err
 	}
 	if _, ok := st.ByID[e.ID]; ok {
 		return fmt.Errorf("duplicate id %s", e.ID)
 	}
-	if e.Ref != nil {
-		ref := *e.Ref
-		target, ok := st.ByID[ref]
-		if !ok {
-			return fmt.Errorf("entry %s not found", ref)
-		}
-		if target.Op != model.OpAdd && target.Op != model.OpSupersede {
-			return fmt.Errorf("entry %s cannot be referenced", ref)
-		}
-		if by, ok := st.ReplacedBy[ref]; ok {
-			return fmt.Errorf("entry %s is already superseded by %s", ref, by)
-		}
-		if by, ok := st.Retracted[ref]; ok {
-			return fmt.Errorf("entry %s is already retracted by %s", ref, by)
-		}
-		if e.Op == model.OpSupersede {
-			st.ReplacedBy[ref] = e.ID
-			st.Roots[e.ID] = st.RootOf(ref)
-		} else {
-			st.Retracted[ref] = e.ID
-		}
-	} else {
-		st.Roots[e.ID] = e.ID
-	}
 	st.ByID[e.ID] = e
 	st.Entries = append(st.Entries, e)
 	return nil
 }
 
-func (st State) RootOf(id string) string {
-	if root := st.Roots[id]; root != "" {
-		return root
+func (st *State) applyRef(e model.Entry) error {
+	if e.Ref == nil {
+		return nil
 	}
-	return id
+	ref := *e.Ref
+	target, ok := st.ByID[ref]
+	if !ok {
+		return fmt.Errorf("entry %s not found", ref)
+	}
+	if target.Op != model.OpAdd && target.Op != model.OpSupersede {
+		return fmt.Errorf("entry %s cannot be referenced", ref)
+	}
+	if by, ok := st.ReplacedBy[ref]; ok {
+		return fmt.Errorf("entry %s is already superseded by %s", ref, by)
+	}
+	if by, ok := st.Retracted[ref]; ok {
+		return fmt.Errorf("entry %s is already retracted by %s", ref, by)
+	}
+	for cur := ref; cur != ""; cur = st.Parent[cur] {
+		if cur == e.ID {
+			return fmt.Errorf("entry %s creates a supersede cycle", e.ID)
+		}
+	}
+	if e.Op == model.OpSupersede {
+		st.ReplacedBy[ref] = e.ID
+		st.Parent[e.ID] = ref
+	} else {
+		st.Retracted[ref] = e.ID
+	}
+	return nil
+}
+
+func (st State) RootOf(id string) string {
+	for {
+		parent, ok := st.Parent[id]
+		if !ok {
+			return id
+		}
+		id = parent
+	}
 }
 
 func (st State) Head(id string) string {

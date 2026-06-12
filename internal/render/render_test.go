@@ -28,7 +28,7 @@ func fixtureState(t *testing.T, name string) store.State {
 		ByID:       map[string]model.Entry{},
 		ReplacedBy: map[string]string{},
 		Retracted:  map[string]string{},
-		Roots:      map[string]string{},
+		Parent:     map[string]string{},
 		Meta:       store.Meta{Version: 1, CreatedAt: "2026-06-12T10:00:00Z", StoreID: "01J9XK7M3QJ8Z6W4V2T1R0PQNM"},
 	}
 	add := func(e model.Entry) {

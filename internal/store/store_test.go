@@ -22,7 +22,7 @@ func TestStateResolutionRejectsInvalidRefs(t *testing.T) {
 	st.ByID = map[string]model.Entry{}
 	st.ReplacedBy = map[string]string{}
 	st.Retracted = map[string]string{}
-	st.Roots = map[string]string{}
+	st.Parent = map[string]string{}
 	require.NoError(t, st.Accept(add))
 	require.NoError(t, st.Accept(sup))
 	require.ErrorContains(t, st.Accept(NewEntry(model.OpSupersede, "bad", nil, "", "s", "", "", &add.ID, mustTime("2026-06-12T10:03:00Z"))), "already superseded")
@@ -84,6 +84,32 @@ func TestLoadToleratesForwardRefs(t *testing.T) {
 	require.Len(t, heads, 1)
 	require.Equal(t, "replacement", heads[0].Fact)
 	require.Equal(t, []model.Entry{state.ByID[add.ID], state.ByID[sup.ID]}, state.Entries)
+}
+
+func TestLoadResolvesRefWithSmallerULID(t *testing.T) {
+	dir := initGitStore(t)
+	st, err := Open(filepath.Join(dir, ".memlog"))
+	require.NoError(t, err)
+	// Same-second writes can hand the supersede a ULID that sorts before
+	// its target; resolution must not depend on id order.
+	idAdd := "01J9XK7M3QJ8Z6W4V2T1R0PQNB"
+	idSup := "01J9XK7M3QJ8Z6W4V2T1R0PQNA"
+	add := model.Entry{ID: idAdd, TS: "2026-06-12T10:00:00Z", Op: model.OpAdd, Fact: "original", Session: "s1"}
+	sup := model.Entry{ID: idSup, TS: "2026-06-12T10:00:00Z", Op: model.OpSupersede, Fact: "replacement", Session: "s2", Ref: &idAdd}
+	var lines []byte
+	for _, e := range []model.Entry{add, sup} {
+		b, err := json.Marshal(e)
+		require.NoError(t, err)
+		lines = append(lines, append(b, '\n')...)
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(st.Dir, "journal", "2026-06.jsonl"), lines, 0o644))
+	state, err := st.Load()
+	require.NoError(t, err)
+	heads := state.LiveHeads()
+	require.Len(t, heads, 1)
+	require.Equal(t, "replacement", heads[0].Fact)
+	require.Equal(t, []model.Entry{add, sup}, state.Chain(idSup))
+	require.Equal(t, idAdd, state.RootOf(idSup))
 }
 
 func TestAppendMonthRolloverAndDeterminism(t *testing.T) {

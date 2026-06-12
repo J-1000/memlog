@@ -77,11 +77,10 @@ func TestSupersedeInherit(t *testing.T) {
 	storeDir := filepath.Join(dir, ".memlog")
 	run(t, dir, bin, "--store", storeDir, "init")
 	id := strings.TrimSpace(run(t, dir, bin, "--store", storeDir, "add", "v1", "--session", "s1", "--tags", "infra,staging", "--subject", "db"))
-	run(t, dir, bin, "--store", storeDir, "supersede", id[:8], "v2", "--session", "s2", "--inherit")
+	id2 := strings.TrimSpace(run(t, dir, bin, "--store", storeDir, "supersede", id, "v2", "--session", "s2", "--inherit"))
 	hit := run(t, dir, bin, "--store", storeDir, "--json", "search", "v2")
 	require.Contains(t, hit, `"tags":["infra","staging"]`)
 	require.Contains(t, hit, `"subject":"db"`)
-	id2 := strings.TrimSpace(run(t, dir, bin, "--store", storeDir, "search", "v2"))[:8]
 	run(t, dir, bin, "--store", storeDir, "supersede", id2, "v3", "--session", "s3", "--inherit", "--tags", "ops")
 	hit = run(t, dir, bin, "--store", storeDir, "--json", "search", "v3")
 	require.Contains(t, hit, `"tags":["ops"]`)
