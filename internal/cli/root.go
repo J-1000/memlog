@@ -258,12 +258,22 @@ func (a *app) historyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			for _, e := range state.Entries {
-				text := e.Fact
-				if e.Ref != nil && text == "" {
-					text = *e.Ref
+			if a.jsonOut {
+				entries := state.Entries
+				if entries == nil {
+					entries = []model.Entry{}
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%s  %s  %s  %s\n", e.TS, e.Op, e.ID[:8], text)
+				if err := json.NewEncoder(cmd.OutOrStdout()).Encode(entries); err != nil {
+					return err
+				}
+			} else {
+				for _, e := range state.Entries {
+					text := e.Fact
+					if e.Ref != nil && text == "" {
+						text = *e.Ref
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "%s  %s  %s  %s\n", e.TS, e.Op, e.ID[:8], text)
+				}
 			}
 			if len(state.Entries) == 0 {
 				return store.ErrNotFound{Err: fmt.Errorf("no entries")}
