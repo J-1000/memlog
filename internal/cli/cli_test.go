@@ -34,6 +34,29 @@ func TestCLILifecycle(t *testing.T) {
 	require.Contains(t, run(t, dir, bin, "--store", storeDir, "render"), "unchanged")
 }
 
+func TestAddStdinBatch(t *testing.T) {
+	dir := t.TempDir()
+	bin := buildCLI(t)
+	run(t, dir, "git", "init")
+	run(t, dir, "git", "config", "user.email", "test@example.com")
+	run(t, dir, "git", "config", "user.name", "Test User")
+	storeDir := filepath.Join(dir, ".memlog")
+	run(t, dir, bin, "--store", storeDir, "init")
+	cmd := exec.Command(bin, "--store", storeDir, "add", "--stdin", "--session", "s1", "--tags", "batch")
+	cmd.Dir = dir
+	cmd.Stdin = strings.NewReader("first fact\n\nsecond fact\n")
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
+	ids := strings.Fields(string(out))
+	require.Len(t, ids, 2)
+	require.Less(t, ids[0], ids[1])
+	log := run(t, dir, "git", "log", "--oneline")
+	require.Contains(t, log, "memlog: add 2 facts")
+	require.Contains(t, run(t, dir, bin, "--store", storeDir, "search", "second"), "second fact")
+	_, code := runExit(t, dir, bin, "--store", storeDir, "add", "fact", "--stdin", "--session", "s1")
+	require.Equal(t, 2, code)
+}
+
 func TestDoctorFixUpgradesSupportFiles(t *testing.T) {
 	dir := t.TempDir()
 	bin := buildCLI(t)

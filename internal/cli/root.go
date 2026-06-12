@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -105,10 +107,14 @@ func (a *app) initCmd() *cobra.Command {
 
 func (a *app) addCmd() *cobra.Command {
 	var tags, subject, session, agent, source string
+	var stdin bool
 	cmd := &cobra.Command{
-		Use:  "add FACT",
-		Args: cobra.ExactArgs(1),
+		Use:  "add [FACT]",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if stdin == (len(args) == 1) {
+				return store.ErrUsage{Err: fmt.Errorf("provide either FACT or --stdin")}
+			}
 			st, err := a.open()
 			if err != nil {
 				return err
@@ -117,12 +123,49 @@ func (a *app) addCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			e := store.NewEntry(model.OpAdd, args[0], parseTags(tags), subject, session, agent, source, nil, now)
-			return a.writeEntry(cmd, st, e)
+			facts := args
+			if stdin {
+				if facts, err = readFacts(cmd.InOrStdin()); err != nil {
+					return err
+				}
+				if len(facts) == 0 {
+					return store.ErrUsage{Err: fmt.Errorf("no facts on stdin")}
+				}
+			}
+			entries := store.NewEntries(model.OpAdd, facts, parseTags(tags), subject, session, agent, source, nil, now)
+			if len(entries) == 1 {
+				return a.writeEntry(cmd, st, entries[0])
+			}
+			body := strings.Join(facts, "\n")
+			body += "\n\nMemlog-Session: " + session
+			body += "\nMemlog-Agent: " + agent
+			message := fmt.Sprintf("memlog: add %d facts", len(entries))
+			if err := st.Append(cmd.Context(), entries, render.Memory, message, body); err != nil {
+				return err
+			}
+			for _, e := range entries {
+				fmt.Fprintln(cmd.OutOrStdout(), e.ID)
+			}
+			return nil
 		},
 	}
 	addEntryFlags(cmd, &tags, &subject, &session, &agent, &source)
+	cmd.Flags().BoolVar(&stdin, "stdin", false, "read facts from stdin, one per line")
 	return cmd
+}
+
+func readFacts(r io.Reader) ([]string, error) {
+	var facts []string
+	sc := bufio.NewScanner(r)
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for sc.Scan() {
+		line := sc.Text()
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		facts = append(facts, line)
+	}
+	return facts, sc.Err()
 }
 
 func (a *app) supersedeCmd() *cobra.Command {

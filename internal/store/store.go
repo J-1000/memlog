@@ -426,18 +426,30 @@ func AtomicWrite(path string, b []byte) error {
 }
 
 func NewEntry(op, fact string, tags []string, subject, session, agent, source string, ref *string, ts time.Time) model.Entry {
-	return model.Entry{
-		ID:      model.NewID(ts.UTC(), ulid.Monotonic(rand.Reader, 0)),
-		TS:      ts.UTC().Format(time.RFC3339),
-		Op:      op,
-		Fact:    fact,
-		Tags:    model.NormalizeTags(tags),
-		Subject: subject,
-		Session: session,
-		Agent:   agent,
-		Source:  source,
-		Ref:     ref,
+	return NewEntries(op, []string{fact}, tags, subject, session, agent, source, ref, ts)[0]
+}
+
+// NewEntries builds one entry per fact with shared metadata. A single
+// monotonic entropy source keeps the ULIDs in fact order even within
+// the same millisecond.
+func NewEntries(op string, facts []string, tags []string, subject, session, agent, source string, ref *string, ts time.Time) []model.Entry {
+	entropy := ulid.Monotonic(rand.Reader, 0)
+	entries := make([]model.Entry, 0, len(facts))
+	for _, fact := range facts {
+		entries = append(entries, model.Entry{
+			ID:      model.NewID(ts.UTC(), entropy),
+			TS:      ts.UTC().Format(time.RFC3339),
+			Op:      op,
+			Fact:    fact,
+			Tags:    model.NormalizeTags(tags),
+			Subject: subject,
+			Session: session,
+			Agent:   agent,
+			Source:  source,
+			Ref:     ref,
+		})
 	}
+	return entries
 }
 
 type ErrUsage struct{ Err error }
