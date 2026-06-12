@@ -26,7 +26,7 @@ func TestStateResolutionRejectsInvalidRefs(t *testing.T) {
 	require.NoError(t, st.Accept(sup))
 	require.ErrorContains(t, st.Accept(NewEntry(model.OpSupersede, "bad", nil, "", "s", "", "", &add.ID, mustTime("2026-06-12T10:03:00Z"))), "already superseded")
 	require.NoError(t, st.Accept(retract))
-	require.ErrorContains(t, st.Accept(NewEntry(model.OpRetract, "", nil, "", "s", "", "", &sup.ID, mustTime("2026-06-12T10:04:00Z"))), "already superseded")
+	require.ErrorContains(t, st.Accept(NewEntry(model.OpRetract, "", nil, "", "s", "", "", &sup.ID, mustTime("2026-06-12T10:04:00Z"))), "already retracted")
 	missing := "01J9XK7M3QJ8Z6W4V2T1R0PQNM"
 	require.ErrorContains(t, st.Accept(NewEntry(model.OpRetract, "", nil, "", "s", "", "", &missing, mustTime("2026-06-12T10:05:00Z"))), "not found")
 	require.Empty(t, st.LiveHeads())

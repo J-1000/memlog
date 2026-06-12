@@ -179,7 +179,7 @@ func (st *State) Accept(e model.Entry) error {
 			return fmt.Errorf("entry %s is already superseded by %s", ref, by)
 		}
 		if by, ok := st.Retracted[ref]; ok {
-			return fmt.Errorf("entry %s is already superseded by %s", ref, by)
+			return fmt.Errorf("entry %s is already retracted by %s", ref, by)
 		}
 		if e.Op == model.OpSupersede {
 			st.ReplacedBy[ref] = e.ID
