@@ -143,6 +143,32 @@ func TestMCPSubcommand(t *testing.T) {
 	require.Contains(t, run(t, dir, "git", "log", "--oneline"), "memlog: add")
 }
 
+func TestUsageErrorsExitTwo(t *testing.T) {
+	dir := t.TempDir()
+	bin := buildCLI(t)
+	run(t, dir, "git", "init")
+	run(t, dir, "git", "config", "user.email", "test@example.com")
+	run(t, dir, "git", "config", "user.name", "Test User")
+	storeDir := filepath.Join(dir, ".memlog")
+	run(t, dir, bin, "--store", storeDir, "init")
+	cases := map[string][]string{
+		"missing arg":     {"show"},
+		"too few args":    {"supersede", "REF"},
+		"too many args":   {"history", "extra"},
+		"missing session": {"add", "fact"},
+		"retract session": {"retract", "ABCDEFGH"},
+		"missing before":  {"stale"},
+		"unknown flag":    {"add", "fact", "--session", "s", "--bogus"},
+		"unknown command": {"frobnicate"},
+	}
+	for name, args := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, code := runExit(t, dir, bin, append([]string{"--store", storeDir}, args...)...)
+			require.Equal(t, 2, code)
+		})
+	}
+}
+
 func buildCLI(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "memlog")

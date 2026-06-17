@@ -48,6 +48,16 @@ appended instead of rewritten.`,
 	root.PersistentFlags().BoolVar(&a.jsonOut, "json", false, "machine-readable output")
 	root.PersistentFlags().StringVar(&a.ts, "ts", "", "test timestamp")
 	_ = root.PersistentFlags().MarkHidden("ts")
+	// Flag-parse failures (unknown or malformed flags) are usage errors.
+	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
+		return store.ErrUsage{Err: err}
+	})
+	// An unknown subcommand lands on root with leftover args. Making root
+	// runnable lets NoArgs validation run (instead of cobra short-circuiting
+	// to help), turning the leftover into a usage error ("unknown command").
+	// With no args the validation passes and RunE just prints help.
+	root.Args = usageArgs(cobra.NoArgs)
+	root.RunE = func(cmd *cobra.Command, _ []string) error { return cmd.Help() }
 	root.AddCommand(
 		a.initCmd(),
 		a.addCmd(),
@@ -99,7 +109,7 @@ func (a *app) initCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init [PATH]",
 		Short: "Create a memory store",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  usageArgs(cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := ".memlog"
 			if len(args) == 1 {
@@ -130,10 +140,13 @@ func (a *app) addCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add [FACT]",
 		Short: "Record a new fact",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  usageArgs(cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if stdin == (len(args) == 1) {
 				return store.ErrUsage{Err: fmt.Errorf("provide either FACT or --stdin")}
+			}
+			if err := requireSession(session); err != nil {
+				return err
 			}
 			st, err := a.open()
 			if err != nil {
@@ -194,8 +207,11 @@ func (a *app) supersedeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "supersede REF FACT",
 		Short: "Replace a live fact with a new version",
-		Args:  cobra.ExactArgs(2),
+		Args:  usageArgs(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireSession(session); err != nil {
+				return err
+			}
 			st, err := a.open()
 			if err != nil {
 				return err
@@ -236,8 +252,11 @@ func (a *app) retractCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "retract REF",
 		Short: "Mark a live fact as no longer true",
-		Args:  cobra.ExactArgs(1),
+		Args:  usageArgs(cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireSession(session); err != nil {
+				return err
+			}
 			st, err := a.open()
 			if err != nil {
 				return err
@@ -260,7 +279,6 @@ func (a *app) retractCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&session, "session", "", "session")
 	cmd.Flags().StringVar(&source, "source", "", "source")
-	_ = cmd.MarkFlagRequired("session")
 	return cmd
 }
 
@@ -277,7 +295,7 @@ func (a *app) historyCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "history",
 		Short: "Print the full append-only journal",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -316,7 +334,7 @@ func (a *app) showCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show REF",
 		Short: "Show a fact and its version chain",
-		Args:  cobra.ExactArgs(1),
+		Args:  usageArgs(cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -357,7 +375,7 @@ func (a *app) searchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search QUERY",
 		Short: "Search live facts by substring",
-		Args:  cobra.ExactArgs(1),
+		Args:  usageArgs(cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateFilters(tag, subject); err != nil {
 				return err
@@ -388,7 +406,7 @@ func (a *app) listCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List live facts without a query",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateFilters(tag, subject); err != nil {
 				return err
@@ -415,7 +433,7 @@ func (a *app) contextCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "context",
 		Short: "Print a compact live-fact digest for agent context",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateFilters("", subject); err != nil {
 				return err
@@ -480,7 +498,7 @@ func (a *app) renderCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "render",
 		Short: "Regenerate MEMORY.md and commit if changed",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -517,7 +535,7 @@ func (a *app) sessionsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "sessions",
 		Short: "List sessions with entry counts",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -582,7 +600,7 @@ func (a *app) taxonomyCmd(use, short string, valuesOf func(model.Entry) []string
 	return &cobra.Command{
 		Use:   use,
 		Short: short,
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -629,7 +647,7 @@ func (a *app) doctorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check integrity and recover generated state",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -716,7 +734,7 @@ func (a *app) staleCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stale --before DURATION",
 		Short: "List live facts untouched for a duration",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			d, err := parseDuration(before)
 			if err != nil {
@@ -770,7 +788,6 @@ func (a *app) staleCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&before, "before", "", "duration like 90d, 12h, or 30m")
-	_ = cmd.MarkFlagRequired("before")
 	return cmd
 }
 
@@ -794,7 +811,7 @@ func (a *app) mcpCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "mcp",
 		Short: "Serve memlog tools over the Model Context Protocol (stdio)",
-		Args:  cobra.NoArgs,
+		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			s := &mcp.Server{StorePath: a.storePath, Version: Version}
 			return s.Serve(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout())
@@ -808,7 +825,26 @@ func addEntryFlags(cmd *cobra.Command, tags, subject, session, agent, source *st
 	cmd.Flags().StringVar(session, "session", "", "session")
 	cmd.Flags().StringVar(agent, "agent", "", "agent")
 	cmd.Flags().StringVar(source, "source", "", "source")
-	_ = cmd.MarkFlagRequired("session")
+}
+
+// usageArgs wraps a positional-args validator so a failed check exits as
+// a usage error (code 2) rather than a generic failure (code 4).
+func usageArgs(v cobra.PositionalArgs) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if err := v(cmd, args); err != nil {
+			return store.ErrUsage{Err: err}
+		}
+		return nil
+	}
+}
+
+// requireSession enforces that a mutating command was given a session,
+// surfacing the omission as a usage error.
+func requireSession(session string) error {
+	if session == "" {
+		return store.ErrUsage{Err: fmt.Errorf("--session is required")}
+	}
+	return nil
 }
 
 func parseTags(s string) []string {
