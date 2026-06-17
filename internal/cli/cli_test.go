@@ -169,6 +169,40 @@ func TestUsageErrorsExitTwo(t *testing.T) {
 	}
 }
 
+func TestEnvProvenanceDefaults(t *testing.T) {
+	dir := t.TempDir()
+	bin := buildCLI(t)
+	run(t, dir, "git", "init")
+	run(t, dir, "git", "config", "user.email", "test@example.com")
+	run(t, dir, "git", "config", "user.name", "Test User")
+	storeDir := filepath.Join(dir, ".memlog")
+	run(t, dir, bin, "--store", storeDir, "init")
+
+	// MEMLOG_SESSION/MEMLOG_AGENT supply defaults when flags are omitted.
+	id := strings.TrimSpace(runEnv(t, dir, []string{"MEMLOG_SESSION=env-sess", "MEMLOG_AGENT=env-agent"},
+		bin, "--store", storeDir, "add", "from env"))
+	require.Len(t, id, 26)
+	hit := run(t, dir, bin, "--store", storeDir, "--json", "search", "from env")
+	require.Contains(t, hit, `"session":"env-sess"`)
+	require.Contains(t, hit, `"agent":"env-agent"`)
+
+	// An explicit flag overrides the environment.
+	runEnv(t, dir, []string{"MEMLOG_SESSION=env-sess", "MEMLOG_AGENT=env-agent"},
+		bin, "--store", storeDir, "add", "override", "--session", "flag-sess", "--agent", "flag-agent")
+	hit = run(t, dir, bin, "--store", storeDir, "--json", "search", "override")
+	require.Contains(t, hit, `"session":"flag-sess"`)
+	require.Contains(t, hit, `"agent":"flag-agent"`)
+
+	// supersede and retract inherit the env session too.
+	runEnv(t, dir, []string{"MEMLOG_SESSION=env-sup"}, bin, "--store", storeDir, "supersede", id, "v2", "--inherit")
+	require.Contains(t, run(t, dir, bin, "--store", storeDir, "--json", "search", "v2"), `"session":"env-sup"`)
+
+	// With neither flag nor env, the session requirement still fails (exit 2).
+	out, code := runEnvExit(t, dir, nil, bin, "--store", storeDir, "add", "no session")
+	require.Equal(t, 2, code)
+	require.Contains(t, out, "MEMLOG_SESSION")
+}
+
 func buildCLI(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "memlog")
@@ -185,9 +219,21 @@ func run(t *testing.T, dir string, name string, args ...string) string {
 
 func runExit(t *testing.T, dir string, name string, args ...string) (string, int) {
 	t.Helper()
+	return runEnvExit(t, dir, nil, name, args...)
+}
+
+func runEnv(t *testing.T, dir string, env []string, name string, args ...string) string {
+	t.Helper()
+	out, code := runEnvExit(t, dir, env, name, args...)
+	require.Zero(t, code, out)
+	return out
+}
+
+func runEnvExit(t *testing.T, dir string, env []string, name string, args ...string) (string, int) {
+	t.Helper()
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_AUTHOR_DATE=2026-06-12T10:00:00Z", "GIT_COMMITTER_DATE=2026-06-12T10:00:00Z")
+	cmd.Env = cleanEnv(env...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		var exit *exec.ExitError
@@ -195,4 +241,18 @@ func runExit(t *testing.T, dir string, name string, args ...string) (string, int
 		return string(out), exit.ExitCode()
 	}
 	return string(out), 0
+}
+
+// cleanEnv returns the process environment with MEMLOG_* variables
+// removed and deterministic git dates added, so the developer's shell
+// cannot leak provenance defaults into a test. extra is appended last.
+func cleanEnv(extra ...string) []string {
+	base := []string{"GIT_AUTHOR_DATE=2026-06-12T10:00:00Z", "GIT_COMMITTER_DATE=2026-06-12T10:00:00Z"}
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, "MEMLOG_") {
+			continue
+		}
+		base = append(base, kv)
+	}
+	return append(base, extra...)
 }

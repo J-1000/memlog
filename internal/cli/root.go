@@ -145,6 +145,8 @@ func (a *app) addCmd() *cobra.Command {
 			if stdin == (len(args) == 1) {
 				return store.ErrUsage{Err: fmt.Errorf("provide either FACT or --stdin")}
 			}
+			session = envOr(session, "MEMLOG_SESSION")
+			agent = envOr(agent, "MEMLOG_AGENT")
 			if err := requireSession(session); err != nil {
 				return err
 			}
@@ -209,6 +211,8 @@ func (a *app) supersedeCmd() *cobra.Command {
 		Short: "Replace a live fact with a new version",
 		Args:  usageArgs(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			session = envOr(session, "MEMLOG_SESSION")
+			agent = envOr(agent, "MEMLOG_AGENT")
 			if err := requireSession(session); err != nil {
 				return err
 			}
@@ -254,6 +258,7 @@ func (a *app) retractCmd() *cobra.Command {
 		Short: "Mark a live fact as no longer true",
 		Args:  usageArgs(cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			session = envOr(session, "MEMLOG_SESSION")
 			if err := requireSession(session); err != nil {
 				return err
 			}
@@ -838,11 +843,21 @@ func usageArgs(v cobra.PositionalArgs) cobra.PositionalArgs {
 	}
 }
 
+// envOr returns val when non-empty, otherwise the value of the named
+// environment variable. It lets MEMLOG_SESSION / MEMLOG_AGENT supply
+// provenance defaults so agents need not repeat them on every call.
+func envOr(val, key string) string {
+	if val != "" {
+		return val
+	}
+	return os.Getenv(key)
+}
+
 // requireSession enforces that a mutating command was given a session,
 // surfacing the omission as a usage error.
 func requireSession(session string) error {
 	if session == "" {
-		return store.ErrUsage{Err: fmt.Errorf("--session is required")}
+		return store.ErrUsage{Err: fmt.Errorf("--session is required (set it or MEMLOG_SESSION)")}
 	}
 	return nil
 }
