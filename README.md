@@ -217,6 +217,16 @@ JSON shapes are stable and suitable for scripts:
 
 Exit codes are the same with and without `--json`; an empty result still exits 1.
 
+## Exit Codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Success |
+| 1 | No matching results, or the referenced entry was not found |
+| 2 | Usage error: bad arguments, a missing required flag, or an unknown command |
+| 3 | Store is locked by another process |
+| 4 | Git failure or an unexpected error |
+
 ## Crash Recovery
 
 Mutating commands append to the journal before committing. If `git commit` fails, the journal line remains on disk and the next successful command can include it.
