@@ -93,6 +93,19 @@ Global flags:
 
 `REF` can be a full ULID or an unambiguous prefix of at least 8 characters.
 
+## Environment
+
+| Variable | Effect |
+|---|---|
+| `MEMLOG_STORE` | Store path, used when `--store` is not given |
+| `MEMLOG_SESSION` | Default for `--session` on `add`, `supersede`, and `retract` |
+| `MEMLOG_AGENT` | Default for `--agent` on `add` and `supersede` |
+
+An explicit flag always overrides the environment. Exporting `MEMLOG_SESSION`
+(and optionally `MEMLOG_AGENT`) once per agent session avoids repeating the
+provenance flags on every call; `--session` is still required when neither the
+flag nor the variable is set.
+
 ## Agent Examples
 
 Add a fact:
@@ -154,6 +167,15 @@ memlog context --max-chars 4000
 ```
 
 `context` prints a Markdown digest of live facts without provenance or ids. With `--max-chars`, whole facts are dropped from the end to fit the budget and a note goes to stderr.
+
+Set provenance once and omit it from individual calls:
+
+```sh
+export MEMLOG_SESSION=claude-code-2026-06-12-a
+export MEMLOG_AGENT=claude-code
+memlog add "Deploys run from the release branch only."
+memlog add "Staging mirrors production weekly."
+```
 
 ## Output Model
 
