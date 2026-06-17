@@ -34,7 +34,12 @@ type app struct {
 func NewRoot() *cobra.Command {
 	a := &app{}
 	root := &cobra.Command{
-		Use:           "memlog",
+		Use:   "memlog",
+		Short: "Append-only, git-backed memory for agents and humans",
+		Long: `memlog records explicit facts as immutable JSONL entries, renders the
+current live memory to MEMORY.md, and commits every change through git.
+History is plain text, provenance is first-class, and corrections are
+appended instead of rewritten.`,
 		Version:       Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -92,8 +97,9 @@ func (a *app) open() (store.Store, error) { return store.Resolve(a.storePath) }
 
 func (a *app) initCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:  "init [PATH]",
-		Args: cobra.MaximumNArgs(1),
+		Use:   "init [PATH]",
+		Short: "Create a memory store",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := ".memlog"
 			if len(args) == 1 {
@@ -122,8 +128,9 @@ func (a *app) addCmd() *cobra.Command {
 	var tags, subject, session, agent, source string
 	var stdin bool
 	cmd := &cobra.Command{
-		Use:  "add [FACT]",
-		Args: cobra.MaximumNArgs(1),
+		Use:   "add [FACT]",
+		Short: "Record a new fact",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if stdin == (len(args) == 1) {
 				return store.ErrUsage{Err: fmt.Errorf("provide either FACT or --stdin")}
@@ -185,8 +192,9 @@ func (a *app) supersedeCmd() *cobra.Command {
 	var tags, subject, session, agent, source string
 	var inherit bool
 	cmd := &cobra.Command{
-		Use:  "supersede REF FACT",
-		Args: cobra.ExactArgs(2),
+		Use:   "supersede REF FACT",
+		Short: "Replace a live fact with a new version",
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -226,8 +234,9 @@ func (a *app) supersedeCmd() *cobra.Command {
 func (a *app) retractCmd() *cobra.Command {
 	var session, source string
 	cmd := &cobra.Command{
-		Use:  "retract REF",
-		Args: cobra.ExactArgs(1),
+		Use:   "retract REF",
+		Short: "Mark a live fact as no longer true",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -266,8 +275,9 @@ func (a *app) writeEntry(cmd *cobra.Command, st store.Store, e model.Entry) erro
 
 func (a *app) historyCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:  "history",
-		Args: cobra.NoArgs,
+		Use:   "history",
+		Short: "Print the full append-only journal",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -304,8 +314,9 @@ func (a *app) historyCmd() *cobra.Command {
 
 func (a *app) showCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:  "show REF",
-		Args: cobra.ExactArgs(1),
+		Use:   "show REF",
+		Short: "Show a fact and its version chain",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -344,8 +355,9 @@ func (a *app) searchCmd() *cobra.Command {
 	var tag, subject string
 	var all bool
 	cmd := &cobra.Command{
-		Use:  "search QUERY",
-		Args: cobra.ExactArgs(1),
+		Use:   "search QUERY",
+		Short: "Search live facts by substring",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateFilters(tag, subject); err != nil {
 				return err
@@ -374,8 +386,9 @@ func (a *app) searchCmd() *cobra.Command {
 func (a *app) listCmd() *cobra.Command {
 	var tag, subject string
 	cmd := &cobra.Command{
-		Use:  "list",
-		Args: cobra.NoArgs,
+		Use:   "list",
+		Short: "List live facts without a query",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateFilters(tag, subject); err != nil {
 				return err
@@ -400,8 +413,9 @@ func (a *app) contextCmd() *cobra.Command {
 	var subject string
 	var maxChars int
 	cmd := &cobra.Command{
-		Use:  "context",
-		Args: cobra.NoArgs,
+		Use:   "context",
+		Short: "Print a compact live-fact digest for agent context",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateFilters("", subject); err != nil {
 				return err
@@ -464,8 +478,9 @@ func (a *app) printFacts(cmd *cobra.Command, hits []model.Entry) error {
 
 func (a *app) renderCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:  "render",
-		Args: cobra.NoArgs,
+		Use:   "render",
+		Short: "Regenerate MEMORY.md and commit if changed",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -500,8 +515,9 @@ func (a *app) renderCmd() *cobra.Command {
 
 func (a *app) sessionsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:  "sessions",
-		Args: cobra.NoArgs,
+		Use:   "sessions",
+		Short: "List sessions with entry counts",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -548,11 +564,11 @@ func (a *app) sessionsCmd() *cobra.Command {
 }
 
 func (a *app) tagsCmd() *cobra.Command {
-	return a.taxonomyCmd("tags", func(e model.Entry) []string { return e.Tags })
+	return a.taxonomyCmd("tags", "List distinct tags with live-fact counts", func(e model.Entry) []string { return e.Tags })
 }
 
 func (a *app) subjectsCmd() *cobra.Command {
-	return a.taxonomyCmd("subjects", func(e model.Entry) []string {
+	return a.taxonomyCmd("subjects", "List distinct subjects with live-fact counts", func(e model.Entry) []string {
 		if e.Subject == "" {
 			return nil
 		}
@@ -562,10 +578,11 @@ func (a *app) subjectsCmd() *cobra.Command {
 
 // taxonomyCmd lists distinct values with live-fact counts, sorted
 // ascending so agents can reuse the existing taxonomy.
-func (a *app) taxonomyCmd(use string, valuesOf func(model.Entry) []string) *cobra.Command {
+func (a *app) taxonomyCmd(use, short string, valuesOf func(model.Entry) []string) *cobra.Command {
 	return &cobra.Command{
-		Use:  use,
-		Args: cobra.NoArgs,
+		Use:   use,
+		Short: short,
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -610,8 +627,9 @@ func (a *app) taxonomyCmd(use string, valuesOf func(model.Entry) []string) *cobr
 func (a *app) doctorCmd() *cobra.Command {
 	var fix bool
 	cmd := &cobra.Command{
-		Use:  "doctor",
-		Args: cobra.NoArgs,
+		Use:   "doctor",
+		Short: "Check integrity and recover generated state",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := a.open()
 			if err != nil {
@@ -696,8 +714,9 @@ func (a *app) doctorCmd() *cobra.Command {
 func (a *app) staleCmd() *cobra.Command {
 	var before string
 	cmd := &cobra.Command{
-		Use:  "stale --before DURATION",
-		Args: cobra.NoArgs,
+		Use:   "stale --before DURATION",
+		Short: "List live facts untouched for a duration",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			d, err := parseDuration(before)
 			if err != nil {
