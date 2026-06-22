@@ -72,8 +72,8 @@ A store syncs with plain `git pull` and `git push`. The store's `.gitattributes`
 | `memlog supersede REF FACT --session S [--inherit]` | Replace a previous live fact with a new version |
 | `memlog retract REF --session S` | Mark a live fact as no longer true |
 | `memlog show REF` | Show the current logical fact and its chain |
-| `memlog search QUERY` | Search live facts by substring |
-| `memlog list [--subject X] [--tag T]` | List live facts without a query |
+| `memlog search QUERY [--tag T] [--subject X] [--all]` | Search facts by substring; defaults to live facts only |
+| `memlog list [--tag T] [--subject X]` | List live facts without a query |
 | `memlog context [--subject X] [--max-chars N]` | Print a compact live-fact digest for agent context |
 | `memlog history` | Print the full append-only journal |
 | `memlog render` | Regenerate `MEMORY.md` and commit if changed |
@@ -189,7 +189,7 @@ Each journal line is a JSON object with:
 - `session`, `agent`, `source`: provenance
 - `ref`: referenced entry for supersede/retract
 
-The renderer resolves live facts by replaying journal files in filename and line order. Subjects sort ascending, unsubjected facts render last, and the output ends with a provenance table.
+The loader resolves live facts by indexing all journal entries, sorting them by ULID, and applying refs in that order, so resolution does not depend on file or line order. Subjects sort ascending, unsubjected facts render last, and the output ends with a provenance table.
 
 ## JSON Output
 
@@ -202,6 +202,7 @@ memlog sessions --json
 memlog search QUERY --json
 memlog list --json
 memlog history --json
+memlog stale --before 90d --json
 memlog tags --json
 memlog subjects --json
 memlog doctor --json
@@ -210,7 +211,7 @@ memlog doctor --json
 JSON shapes are stable and suitable for scripts:
 
 - `init`: the store's `meta.json` object.
-- `show`, `search`, `list`, `history`: an array of raw journal entries (`[]` when empty).
+- `show`, `search`, `list`, `history`, `stale`: an array of raw journal entries (`[]` when empty).
 - `sessions`: an array of `{"session", "count", "newest"}`.
 - `tags`, `subjects`: an array of `{"name", "count"}` sorted by name.
 - `doctor`: `{"clean": bool, "fixed": bool, "problems": [string]}`.
@@ -279,4 +280,3 @@ CI runs formatting, vet, and tests on Linux and macOS.
 - `context` always prints the `# Memory` heading and exits 0 even when the store has no live facts, so it is safe to inject unconditionally.
 - `stale` measures from wall-clock time against each chain's newest entry; it is review tooling only, and memlog never expires facts itself. Durations accept Go syntax plus a day suffix (`90d`).
 - Stores record a format version in `meta.json`; commands reject stores with a newer version than the binary supports (`store version N not supported; upgrade memlog`).
-
