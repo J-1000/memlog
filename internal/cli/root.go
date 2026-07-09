@@ -52,6 +52,7 @@ appended instead of rewritten.`,
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return store.ErrUsage{Err: err}
 	})
+	configureHelp(root)
 	// An unknown subcommand lands on root with leftover args. Making root
 	// runnable lets NoArgs validation run (instead of cobra short-circuiting
 	// to help), turning the leftover into a usage error ("unknown command").
