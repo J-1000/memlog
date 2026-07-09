@@ -143,6 +143,50 @@ func TestMCPSubcommand(t *testing.T) {
 	require.Contains(t, run(t, dir, "git", "log", "--oneline"), "memlog: add")
 }
 
+func TestRootHelpIsCompleteAgentReference(t *testing.T) {
+	dir := t.TempDir()
+	bin := buildCLI(t)
+	help := run(t, dir, bin, "--help")
+	require.Equal(t, help, run(t, dir, bin, "help"))
+	require.Contains(t, help, "Agent workflow:")
+	require.Contains(t, help, "Command reference:")
+	require.Contains(t, help, "Global flags:")
+	require.Contains(t, help, "Environment:")
+	require.Contains(t, help, "Reference syntax:")
+	require.Contains(t, help, "JSON output:")
+	require.Contains(t, help, "Exit codes:")
+
+	for _, want := range []string{
+		"memlog init [PATH]",
+		"memlog add FACT --session S",
+		"memlog add --stdin --session S",
+		"memlog supersede REF FACT --session S",
+		"memlog retract REF --session S",
+		"memlog show REF",
+		"memlog search QUERY",
+		"memlog list",
+		"memlog context",
+		"memlog history",
+		"memlog render",
+		"memlog sessions",
+		"memlog tags",
+		"memlog subjects",
+		"memlog doctor [--fix]",
+		"memlog stale --before DURATION",
+		"memlog mcp",
+		"memlog completion SHELL",
+		"memlog help [COMMAND]",
+		"memlog [COMMAND] --help",
+	} {
+		require.Contains(t, help, want)
+	}
+
+	addHelp := run(t, dir, bin, "help", "add")
+	require.Contains(t, addHelp, "Usage:\n  memlog add [FACT] [flags]")
+	require.Contains(t, addHelp, "--stdin")
+	require.NotContains(t, addHelp, "Agent workflow:")
+}
+
 func TestUsageErrorsExitTwo(t *testing.T) {
 	dir := t.TempDir()
 	bin := buildCLI(t)
