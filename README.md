@@ -83,12 +83,15 @@ A store syncs with plain `git pull` and `git push`. The store's `.gitattributes`
 | `memlog doctor [--fix]` | Check integrity and recover stale generated state |
 | `memlog stale --before DURATION` | List live facts untouched for DURATION (e.g. `90d`), oldest first |
 | `memlog mcp` | Serve memlog tools over the Model Context Protocol (stdio) |
+| `memlog help [COMMAND]` / `memlog [COMMAND] --help` | Show the full agent-oriented command guide or command-specific help |
 
 Global flags:
 
 ```sh
 --store PATH
 --json
+--help
+--version
 ```
 
 `REF` can be a full ULID or an unambiguous prefix of at least 8 characters.
