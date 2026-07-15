@@ -23,7 +23,7 @@ Download a prebuilt binary for Linux, macOS, or Windows (amd64/arm64) from the [
 go install github.com/J-1000/memlog/cmd/memlog@latest
 ```
 
-Requires `git` on `PATH` (and Go 1.22+ when building from source). `memlog --version` prints the build version.
+Requires `git` on `PATH` (and Go 1.25+ when building from source). `memlog --version` prints the build version.
 
 ## Quick Start
 
