@@ -270,7 +270,7 @@ gofmt -w .
 go build ./cmd/memlog
 ```
 
-CI runs formatting, vet, and tests on Linux and macOS.
+CI runs formatting, vet, and tests on Linux, macOS, and Windows.
 
 ## Design Notes
 
