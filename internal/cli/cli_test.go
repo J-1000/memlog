@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -249,7 +250,11 @@ func TestEnvProvenanceDefaults(t *testing.T) {
 
 func buildCLI(t *testing.T) string {
 	t.Helper()
-	bin := filepath.Join(t.TempDir(), "memlog")
+	name := "memlog"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	bin := filepath.Join(t.TempDir(), name)
 	run(t, filepath.Join("..", ".."), "go", "build", "-o", bin, "./cmd/memlog")
 	return bin
 }

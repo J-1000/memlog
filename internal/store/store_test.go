@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -178,7 +179,11 @@ func initGitStore(t *testing.T) string {
 
 func buildBinary(t *testing.T) string {
 	t.Helper()
-	bin := filepath.Join(t.TempDir(), "memlog")
+	name := "memlog"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	bin := filepath.Join(t.TempDir(), name)
 	run(t, filepath.Join("..", ".."), "go", "build", "-o", bin, "./cmd/memlog")
 	return bin
 }
