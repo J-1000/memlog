@@ -257,7 +257,7 @@ func toolSupersede(ctx context.Context, s *Server, args json.RawMessage) (string
 		Fact    string   `json:"fact"`
 		Session string   `json:"session"`
 		Tags    []string `json:"tags"`
-		Subject string   `json:"subject"`
+		Subject *string  `json:"subject"`
 		Agent   string   `json:"agent"`
 		Source  string   `json:"source"`
 		Inherit bool     `json:"inherit"`
@@ -277,16 +277,20 @@ func toolSupersede(ctx context.Context, s *Server, args json.RawMessage) (string
 	if err != nil {
 		return "", err
 	}
+	subject := ""
+	if p.Subject != nil {
+		subject = *p.Subject
+	}
 	if p.Inherit {
 		target := state.ByID[ref]
 		if p.Tags == nil {
 			p.Tags = target.Tags
 		}
-		if p.Subject == "" {
-			p.Subject = target.Subject
+		if p.Subject == nil {
+			subject = target.Subject
 		}
 	}
-	e := store.NewEntry(model.OpSupersede, p.Fact, p.Tags, p.Subject, p.Session, p.Agent, p.Source, &ref, now())
+	e := store.NewEntry(model.OpSupersede, p.Fact, p.Tags, subject, p.Session, p.Agent, p.Source, &ref, now())
 	return s.append(ctx, st, e)
 }
 
