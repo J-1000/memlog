@@ -190,13 +190,16 @@ func toolAdd(ctx context.Context, s *Server, args json.RawMessage) (string, erro
 
 func toolSearch(ctx context.Context, s *Server, args json.RawMessage) (string, error) {
 	var p struct {
-		Query   string `json:"query"`
-		Tag     string `json:"tag"`
-		Subject string `json:"subject"`
-		All     bool   `json:"all"`
+		Query   *string `json:"query"`
+		Tag     string  `json:"tag"`
+		Subject string  `json:"subject"`
+		All     bool    `json:"all"`
 	}
 	if err := decodeArgs(args, &p); err != nil {
 		return "", err
+	}
+	if p.Query == nil {
+		return "", fmt.Errorf("query is required")
 	}
 	if p.Tag != "" && !model.ValidTag(p.Tag) {
 		return "", fmt.Errorf("invalid tag %q", p.Tag)
@@ -216,7 +219,7 @@ func toolSearch(ctx context.Context, s *Server, args json.RawMessage) (string, e
 	if p.All {
 		hits = state.FactEntries()
 	}
-	hits = store.FilterFacts(hits, p.Tag, p.Subject, p.Query)
+	hits = store.FilterFacts(hits, p.Tag, p.Subject, *p.Query)
 	if hits == nil {
 		hits = []model.Entry{}
 	}

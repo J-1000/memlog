@@ -104,6 +104,8 @@ func TestServeShowSupersedeRetract(t *testing.T) {
 	hits, err := toolSearch(context.Background(), s, json.RawMessage(`{"query":"v2"}`))
 	require.NoError(t, err)
 	require.Equal(t, "[]", hits)
+	_, err = toolSearch(context.Background(), s, json.RawMessage(`{}`))
+	require.EqualError(t, err, "query is required")
 	_, err = toolAdd(context.Background(), s, json.RawMessage(`{"fact":"x","session":"s","bogus":true}`))
 	require.ErrorContains(t, err, "invalid arguments")
 }
