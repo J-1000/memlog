@@ -50,7 +50,7 @@ Command reference:
 
   memlog context [--tag T] [--subject X] [--max-chars N]
       Print a compact Markdown digest of live facts for agent context. With
-      --max-chars, whole facts are dropped from the end to fit the budget.
+      --max-chars (minimum 9), whole facts are dropped from the end to fit the budget.
 
   memlog history
       Print the full append-only journal.

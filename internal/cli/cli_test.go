@@ -208,14 +208,16 @@ func TestUsageErrorsExitTwo(t *testing.T) {
 	storeDir := filepath.Join(dir, ".memlog")
 	run(t, dir, bin, "--store", storeDir, "init")
 	cases := map[string][]string{
-		"missing arg":     {"show"},
-		"too few args":    {"supersede", "REF"},
-		"too many args":   {"history", "extra"},
-		"missing session": {"add", "fact"},
-		"retract session": {"retract", "ABCDEFGH"},
-		"missing before":  {"stale"},
-		"unknown flag":    {"add", "fact", "--session", "s", "--bogus"},
-		"unknown command": {"frobnicate"},
+		"missing arg":             {"show"},
+		"too few args":            {"supersede", "REF"},
+		"too many args":           {"history", "extra"},
+		"missing session":         {"add", "fact"},
+		"retract session":         {"retract", "ABCDEFGH"},
+		"missing before":          {"stale"},
+		"negative context budget": {"context", "--max-chars", "-1"},
+		"tiny context budget":     {"context", "--max-chars", "8"},
+		"unknown flag":            {"add", "fact", "--session", "s", "--bogus"},
+		"unknown command":         {"frobnicate"},
 	}
 	for name, args := range cases {
 		t.Run(name, func(t *testing.T) {

@@ -441,6 +441,11 @@ func (a *app) contextCmd() *cobra.Command {
 		Short: "Print a compact live-fact digest for agent context",
 		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// The mandatory "# Memory\n" heading is nine characters. Reject a
+			// smaller non-zero budget rather than silently exceeding it.
+			if maxChars < 0 || (maxChars > 0 && maxChars < 9) {
+				return store.ErrUsage{Err: fmt.Errorf("--max-chars must be 0 or at least 9")}
+			}
 			if err := validateFilters(tag, subject); err != nil {
 				return err
 			}
@@ -464,7 +469,7 @@ func (a *app) contextCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&tag, "tag", "", "tag")
 	cmd.Flags().StringVar(&subject, "subject", "", "subject")
-	cmd.Flags().IntVar(&maxChars, "max-chars", 0, "character budget; whole facts are dropped to fit")
+	cmd.Flags().IntVar(&maxChars, "max-chars", 0, "character budget (0 for unlimited; minimum 9 when set)")
 	return cmd
 }
 

@@ -169,7 +169,7 @@ Inject live memory at session start:
 memlog context --tag infra --max-chars 4000
 ```
 
-`context` prints a Markdown digest of live facts without provenance or ids. Use `--tag` and `--subject` together or separately to limit the digest. With `--max-chars`, whole facts are dropped from the end to fit the budget and a note goes to stderr.
+`context` prints a Markdown digest of live facts without provenance or ids. Use `--tag` and `--subject` together or separately to limit the digest. With `--max-chars` (minimum 9), whole facts are dropped from the end to fit the budget and a note goes to stderr; `0` leaves the output unlimited.
 
 Set provenance once and omit it from individual calls:
 
