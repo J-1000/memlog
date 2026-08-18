@@ -568,16 +568,19 @@ func (a *app) sessionsCmd() *cobra.Command {
 					row.Newest = e.TS
 				}
 			}
-			var rows []srow
+			rows := []srow{}
 			for _, row := range rowsBy {
 				rows = append(rows, *row)
 			}
 			sort.Slice(rows, func(i, j int) bool { return rows[i].Newest > rows[j].Newest })
 			if a.jsonOut {
-				return json.NewEncoder(cmd.OutOrStdout()).Encode(rows)
-			}
-			for _, row := range rows {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s  %d  %s\n", row.Newest, row.Count, row.Session)
+				if err := json.NewEncoder(cmd.OutOrStdout()).Encode(rows); err != nil {
+					return err
+				}
+			} else {
+				for _, row := range rows {
+					fmt.Fprintf(cmd.OutOrStdout(), "%s  %d  %s\n", row.Newest, row.Count, row.Session)
+				}
 			}
 			if len(rows) == 0 {
 				return store.ErrNotFound{Err: fmt.Errorf("no sessions")}

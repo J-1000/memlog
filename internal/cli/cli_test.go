@@ -20,6 +20,14 @@ func TestCLILifecycle(t *testing.T) {
 	storeDir := filepath.Join(dir, ".memlog")
 	initID := run(t, dir, bin, "--store", storeDir, "--ts", "2026-06-12T10:00:00Z", "init")
 	require.Len(t, strings.TrimSpace(initID), 26)
+	emptySessions := exec.Command(bin, "--store", storeDir, "--json", "sessions")
+	emptySessions.Dir = dir
+	emptySessions.Env = cleanEnv()
+	emptySessionsOut, err := emptySessions.Output()
+	var emptySessionsExit *exec.ExitError
+	require.ErrorAs(t, err, &emptySessionsExit)
+	require.Equal(t, 1, emptySessionsExit.ExitCode())
+	require.Equal(t, "[]\n", string(emptySessionsOut))
 	id1 := strings.TrimSpace(run(t, dir, bin, "--store", storeDir, "--ts", "2026-06-12T10:01:00Z", "add", "First fact", "--session", "s1", "--agent", "agent", "--source", "source", "--tags", "infra,staging", "--subject", "db"))
 	id2 := strings.TrimSpace(run(t, dir, bin, "--store", storeDir, "--ts", "2026-06-12T10:02:00Z", "add", "Second fact", "--session", "s1"))
 	_ = run(t, dir, bin, "--store", storeDir, "--ts", "2026-06-12T10:03:00Z", "add", "Third fact", "--session", "s2")
