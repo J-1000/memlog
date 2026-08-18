@@ -64,17 +64,8 @@ func Memory(st store.State) []byte {
 // agent's context. It returns the digest and how many facts were
 // dropped to stay within maxChars (0 means unlimited). Facts are only
 // dropped whole, never truncated mid-fact.
-func Context(st store.State, subject string, maxChars int) ([]byte, int) {
-	live := st.LiveHeads()
-	if subject != "" {
-		var filtered []model.Entry
-		for _, e := range live {
-			if e.Subject == subject {
-				filtered = append(filtered, e)
-			}
-		}
-		live = filtered
-	}
+func Context(st store.State, tag, subject string, maxChars int) ([]byte, int) {
+	live := store.FilterFacts(st.LiveHeads(), tag, subject, "")
 	subjects, sections := liveSections(live)
 	var chunks []string
 	for _, subj := range subjects {

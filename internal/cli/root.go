@@ -434,14 +434,14 @@ func (a *app) listCmd() *cobra.Command {
 }
 
 func (a *app) contextCmd() *cobra.Command {
-	var subject string
+	var tag, subject string
 	var maxChars int
 	cmd := &cobra.Command{
 		Use:   "context",
 		Short: "Print a compact live-fact digest for agent context",
 		Args:  usageArgs(cobra.NoArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := validateFilters("", subject); err != nil {
+			if err := validateFilters(tag, subject); err != nil {
 				return err
 			}
 			st, err := a.open()
@@ -452,7 +452,7 @@ func (a *app) contextCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out, dropped := render.Context(state, subject, maxChars)
+			out, dropped := render.Context(state, tag, subject, maxChars)
 			if _, err := cmd.OutOrStdout().Write(out); err != nil {
 				return err
 			}
@@ -462,6 +462,7 @@ func (a *app) contextCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&tag, "tag", "", "tag")
 	cmd.Flags().StringVar(&subject, "subject", "", "subject")
 	cmd.Flags().IntVar(&maxChars, "max-chars", 0, "character budget; whole facts are dropped to fit")
 	return cmd

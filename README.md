@@ -74,7 +74,7 @@ A store syncs with plain `git pull` and `git push`. The store's `.gitattributes`
 | `memlog show REF` | Show the current logical fact and its chain |
 | `memlog search QUERY [--tag T] [--subject X] [--all]` | Search facts by substring; defaults to live facts only |
 | `memlog list [--tag T] [--subject X]` | List live facts without a query |
-| `memlog context [--subject X] [--max-chars N]` | Print a compact live-fact digest for agent context |
+| `memlog context [--tag T] [--subject X] [--max-chars N]` | Print a filtered, compact live-fact digest for agent context |
 | `memlog history` | Print the full append-only journal |
 | `memlog render` | Regenerate `MEMORY.md` and commit if changed |
 | `memlog sessions` | List sessions with entry counts |
@@ -166,10 +166,10 @@ memlog subjects
 Inject live memory at session start:
 
 ```sh
-memlog context --max-chars 4000
+memlog context --tag infra --max-chars 4000
 ```
 
-`context` prints a Markdown digest of live facts without provenance or ids. With `--max-chars`, whole facts are dropped from the end to fit the budget and a note goes to stderr.
+`context` prints a Markdown digest of live facts without provenance or ids. Use `--tag` and `--subject` together or separately to limit the digest. With `--max-chars`, whole facts are dropped from the end to fit the budget and a note goes to stderr.
 
 Set provenance once and omit it from individual calls:
 

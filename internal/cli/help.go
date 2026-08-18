@@ -48,7 +48,7 @@ Command reference:
   memlog list [--tag T] [--subject X]
       List live facts without a search query.
 
-  memlog context [--subject X] [--max-chars N]
+  memlog context [--tag T] [--subject X] [--max-chars N]
       Print a compact Markdown digest of live facts for agent context. With
       --max-chars, whole facts are dropped from the end to fit the budget.
 
