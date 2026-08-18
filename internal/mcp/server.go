@@ -78,7 +78,12 @@ func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 }
 
 func (s *Server) handle(ctx context.Context, req request) *response {
-	notification := len(req.ID) == 0 || string(req.ID) == "null"
+	// JSON-RPC notifications omit id and never receive a response. The MCP
+	// initialized notification is handled the same way as any future client
+	// notification: accept it and keep serving.
+	if len(req.ID) == 0 {
+		return nil
+	}
 	switch req.Method {
 	case "initialize":
 		var p struct {
@@ -117,9 +122,6 @@ func (s *Server) handle(ctx context.Context, req request) *response {
 		}
 		return result(req.ID, toolResult{Content: []toolContent{{Type: "text", Text: text}}})
 	default:
-		if notification {
-			return nil
-		}
 		return rpcErr(req.ID, -32601, fmt.Sprintf("method %q not found", req.Method))
 	}
 }

@@ -28,6 +28,7 @@ func TestServeLifecycle(t *testing.T) {
 	requests := []string{
 		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}`,
 		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
+		`{"jsonrpc":"2.0","method":"ping"}`,
 		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`,
 		`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"memlog_add","arguments":{"fact":"MCP fact","session":"mcp-s1","tags":["mcp"]}}}`,
 		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"memlog_search","arguments":{"query":"mcp"}}}`,
@@ -39,7 +40,7 @@ func TestServeLifecycle(t *testing.T) {
 	require.NoError(t, s.Serve(context.Background(), strings.NewReader(strings.Join(requests, "\n")+"\n"), &out))
 
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	require.Len(t, lines, 7) // the notification gets no response
+	require.Len(t, lines, 7) // notifications get no responses
 
 	type resp struct {
 		ID     json.RawMessage `json:"id"`
