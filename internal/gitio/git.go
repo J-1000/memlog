@@ -47,6 +47,10 @@ func Commit(ctx context.Context, repoDir, message, body string, paths ...string)
 	if body != "" {
 		commitArgs = append(commitArgs, "-m", body)
 	}
+	// Restrict the commit to memlog's paths so changes that the user had
+	// already staged elsewhere in the repository remain untouched.
+	commitArgs = append(commitArgs, "--")
+	commitArgs = append(commitArgs, paths...)
 	_, err := Run(ctx, repoDir, commitArgs...)
 	return err
 }
