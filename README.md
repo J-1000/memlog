@@ -111,6 +111,8 @@ flag nor the variable is set.
 
 ## Agent Examples
 
+More end-to-end scenarios are collected in [docs/examples.md](docs/examples.md).
+
 Add a fact:
 
 ```sh
